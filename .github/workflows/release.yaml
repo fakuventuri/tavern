@@ -11,11 +11,11 @@ on:
         required: true
         type: string
 
-# ToDo: adapt names
+# done: adapt names
 env:
   # This variable is used to name release output files.
-  GAME_EXECUTABLE_NAME: bevy_game
-  GAME_OSX_APP_NAME: BevyGame
+  GAME_EXECUTABLE_NAME: tavern
+  GAME_OSX_APP_NAME: Tavern
 
 permissions:
   contents: write
