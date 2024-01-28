@@ -145,9 +145,14 @@ jobs:
         with:
           files: target/dist/assets/ target/dist/credits/ target/dist/${{ env.GAME_EXECUTABLE_NAME }}.exe
           dest: ${{ env.GAME_EXECUTABLE_NAME }}_windows.zip
+      - uses: bhowell2/github-substring-action@1.0.2
+        id: ver
+        with:
+          value: env.VERSION
+          index_of_str: "v"
       - name: Create Installer
         if: ${{ env.BUILD_INSTALLER }}
-        run: dotnet build -p:Version=$[replace(env.VERSION, 'v', '')] -c Release build/windows/installer/Installer.wixproj --output installer
+        run: dotnet build -p:Version=${{ steps.ver.outputs.substring }} -c Release build/windows/installer/Installer.wixproj --output installer
       - name: Upload release
         uses: svenstaro/upload-release-action@v2
         with:
