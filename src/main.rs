@@ -6,8 +6,8 @@ use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
 use bevy::winit::WinitWindows;
 use bevy::DefaultPlugins;
-use tavern::GamePlugin; // Done: Replace bevy_game with your new crate name.
 use std::io::Cursor;
+use tavern::GamePlugin; // Done: Replace bevy_game with your new crate name.
 use winit::window::Icon;
 
 fn main() {

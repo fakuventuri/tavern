@@ -1,5 +1,5 @@
 [build]
-public_url = "./"
+public_url = "./" # Remove '.' for "trunk serve" to work.
 
 [serve]
 port = 8080
