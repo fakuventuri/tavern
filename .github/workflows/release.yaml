@@ -85,7 +85,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Get targets
-        run:
+        run: echo "Get targets"
     outputs:
       # Inputs or default values
       build_for_windows: ${{ inputs.build_for_windows || 'zip+installer' }}
