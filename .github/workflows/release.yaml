@@ -50,7 +50,6 @@ on:
         default: "false"
         options:
           - "true"
-          - "update_versionCode"
           - "false"
       build_for_ios:
         description: "Build for iOS:"
@@ -313,22 +312,8 @@ jobs:
           tag: ${{ env.VERSION }}
           overwrite: true
 
-  update-android-version-code:
-    if: ${{ needs.get-targets.outputs.build_for_android != 'false' }}
-    needs: [get-version, get-targets]
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    env:
-      VERSION: ${{needs.get-version.outputs.version}}
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "node"
-      - run: node android_versionCode.js
-
   build-for-Android:
-    needs: [get-version, get-targets, update-android-version-code]
+    needs: [get-version, get-targets]
     if: ${{ needs.get-targets.outputs.build_for_android == 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -337,8 +322,6 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       - uses: dtolnay/rust-toolchain@stable
-      - name: Update apk versionCode
-        run: node android_versionCode.js
       - name: Add Android targets
         # could add more targets like armv7-linux-androideabi here (then also add to cargo-apk config)
         run: rustup target add aarch64-linux-android
