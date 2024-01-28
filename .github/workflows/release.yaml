@@ -89,7 +89,7 @@ jobs:
       build_for_windows: ${{ inputs.build_for_windows || 'zip+installer' }}
       build_for_macOS: ${{ inputs.build_for_macOS || 'false' }}
       build_for_linux: ${{ inputs.build_for_linux || 'false' }}
-      build_for_web: ${{ inputs.build_for_web || 'true' }}
+      build_for_web: ${{ inputs.build_for_web || 'false' }}
       build_for_android: ${{ inputs.build_for_android || 'false' }}
       build_for_ios: ${{ inputs.build_for_ios || 'false' }}
 
