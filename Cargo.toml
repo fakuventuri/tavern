@@ -1,6 +1,6 @@
 [package]
 name = "tavern"                                  # Done
-version = "0.1.0"
+version = "0.1.2"
 publish = false
 authors = ["Facundo Venturi"]                    # Done
 edition = "2021"
