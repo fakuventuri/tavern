@@ -11,7 +11,7 @@ on:
         required: true
         type: string
       build_for_windows:
-        description: "Build for windows: 0 NONE | 1 zip | 2 zip + Installer"
+        description: "Build for windows:"
         type: choice
         required: true
         default: "zip+installer"
@@ -40,7 +40,7 @@ jobs:
       version: ${{ inputs.version || steps.tag.outputs.tag }}
 
   build-macOS:
-    if: ${{ inputs.build_for_windows != "None" }}
+    if: ${{ inputs.build_for_windows != 'None' }}
     runs-on: macos-latest
     needs: get-version
     env:
@@ -92,7 +92,7 @@ jobs:
           overwrite: true
 
   build-linux:
-    if: ${{ inputs.build_for_windows != "None" }}
+    if: ${{ inputs.build_for_windows != 'None' }}
     runs-on: ubuntu-latest
     needs: get-version
     env:
@@ -127,7 +127,7 @@ jobs:
           overwrite: true
 
   build-windows:
-    if: ${{ inputs.build_for_windows != "None" }}
+    if: ${{ inputs.build_for_windows != 'None' }}
     runs-on: windows-latest
     needs: get-version
     env:
@@ -186,7 +186,7 @@ jobs:
           overwrite: true
 
   build-web:
-    if: ${{ inputs.build_for_windows != "None" }}
+    if: ${{ inputs.build_for_windows != 'None' }}
     runs-on: ubuntu-latest
     needs: get-version
     env:
@@ -230,7 +230,7 @@ jobs:
           overwrite: true
 
   build-for-iOS:
-    if: ${{ inputs.build_for_windows != "None" }}
+    if: ${{ inputs.build_for_windows != 'None' }}
     runs-on: macos-latest
     timeout-minutes: 30
     needs: get-version
@@ -260,7 +260,7 @@ jobs:
           overwrite: true
 
   build-for-Android:
-    if: ${{ inputs.build_for_windows != "None" }}
+    if: ${{ inputs.build_for_windows != 'None' }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
     needs: get-version
