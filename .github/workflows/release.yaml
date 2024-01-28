@@ -16,9 +16,49 @@ on:
         required: true
         default: "zip+installer"
         options:
-          - "None"
+          - "none"
           - "zip"
           - "zip+installer"
+      build_for_macOS:
+        description: "Build for MacOS:"
+        type: choice
+        required: true
+        default: "true"
+        options:
+          - "true"
+          - "false"
+      build_for_linux:
+        description: "Build for Linux:"
+        type: choice
+        required: true
+        default: "true"
+        options:
+          - "true"
+          - "false"
+      build_for_web:
+        description: "Build for Web:"
+        type: choice
+        required: true
+        default: "true"
+        options:
+          - "true"
+          - "false"
+      build_for_android:
+        description: "Build for Android:"
+        type: choice
+        required: true
+        default: "true"
+        options:
+          - "true"
+          - "false"
+      build_for_ios:
+        description: "Build for iOS:"
+        type: choice
+        required: true
+        default: "true"
+        options:
+          - "true"
+          - "false"
 
 # done: adapt names
 env:
@@ -40,7 +80,7 @@ jobs:
       version: ${{ inputs.version || steps.tag.outputs.tag }}
 
   build-macOS:
-    if: ${{ inputs.build_for_windows != 'None' }}
+    if: ${{ inputs.build_for_macOS == 'true' }}
     runs-on: macos-latest
     needs: get-version
     env:
@@ -92,7 +132,7 @@ jobs:
           overwrite: true
 
   build-linux:
-    if: ${{ inputs.build_for_windows != 'None' }}
+    if: ${{ inputs.build_for_linux == 'true' }}
     runs-on: ubuntu-latest
     needs: get-version
     env:
@@ -127,12 +167,11 @@ jobs:
           overwrite: true
 
   build-windows:
-    if: ${{ inputs.build_for_windows != 'None' }}
+    if: ${{ inputs.build_for_windows != 'none' }}
     runs-on: windows-latest
     needs: get-version
     env:
       VERSION: ${{needs.get-version.outputs.version}}
-      BUILD_INSTALLER: ${{ false }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
@@ -141,7 +180,7 @@ jobs:
         with:
           toolchain: stable
       - name: Install dotnet
-        if: ${{ env.BUILD_INSTALLER }}
+        if: ${{ inputs.build_for_windows == 'zip+installer' }}
         uses: actions/setup-dotnet@v3
         with:
           global-json-file: build/windows/installer/global.json
@@ -172,10 +211,10 @@ jobs:
           value: ${{ env.VERSION }}
           index_of_str: "v"
       - name: Create Installer
-        if: ${{ env.BUILD_INSTALLER }}
+        if: ${{ inputs.build_for_windows == 'zip+installer' }}
         run: dotnet build -p:Version=${{ steps.ver.outputs.substring }} -c Release build/windows/installer/Installer.wixproj --output installer
       - name: Upload installer
-        if: ${{ env.BUILD_INSTALLER }}
+        if: ${{ inputs.build_for_windows == 'zip+installer' }}
         uses: svenstaro/upload-release-action@v2
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
@@ -186,7 +225,7 @@ jobs:
           overwrite: true
 
   build-web:
-    if: ${{ inputs.build_for_windows != 'None' }}
+    if: ${{ inputs.build_for_web == 'true' }}
     runs-on: ubuntu-latest
     needs: get-version
     env:
@@ -230,7 +269,7 @@ jobs:
           overwrite: true
 
   build-for-iOS:
-    if: ${{ inputs.build_for_windows != 'None' }}
+    if: ${{ inputs.build_for_ios == 'true' }}
     runs-on: macos-latest
     timeout-minutes: 30
     needs: get-version
@@ -260,7 +299,7 @@ jobs:
           overwrite: true
 
   build-for-Android:
-    if: ${{ inputs.build_for_windows != 'None' }}
+    if: ${{ inputs.build_for_android == 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
     needs: get-version
