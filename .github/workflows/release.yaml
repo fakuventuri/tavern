@@ -148,7 +148,7 @@ jobs:
       - uses: bhowell2/github-substring-action@1.0.2
         id: ver
         with:
-          value: env.VERSION
+          value: ${{ env.VERSION }}
           index_of_str: "v"
       - name: Create Installer
         if: ${{ env.BUILD_INSTALLER }}
