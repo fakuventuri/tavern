@@ -14,7 +14,7 @@ on:
         description: "Build for windows:"
         type: choice
         required: true
-        default: "zip+installer"
+        default: "none"
         options:
           - "none"
           - "zip"
@@ -39,7 +39,7 @@ on:
         description: "Build for Web:"
         type: choice
         required: true
-        default: "true"
+        default: "false"
         options:
           - "true"
           - "false"
