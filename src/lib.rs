@@ -35,19 +35,29 @@ pub struct GamePlugin;
 
 impl Plugin for GamePlugin {
     fn build(&self, app: &mut App) {
-        app.add_state::<GameState>().add_plugins((
-            LoadingPlugin,
-            MenuPlugin,
-            ActionsPlugin,
-            InternalAudioPlugin,
-            IngamePlugin,
-        ));
+        app.add_state::<GameState>()
+            .add_plugins((
+                LoadingPlugin,
+                MenuPlugin,
+                ActionsPlugin,
+                InternalAudioPlugin,
+                IngamePlugin,
+            ))
+            .add_systems(Startup, setup_camera);
 
         #[cfg(debug_assertions)]
         {
             app.add_plugins((FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin::default()));
         }
     }
+}
+
+fn setup_camera(mut commands: Commands) {
+    // Camera
+    commands.spawn(Camera2dBundle::default());
+    // let mut camera_bundle = Camera2dBundle::default();
+    // camera_bundle.projection.scaling_mode = ScalingMode::FixedVertical(1080.0);
+    // commands.spawn(camera_bundle);
 }
 
 // Generic system that takes a component as a parameter, and will despawn all entities with that component
