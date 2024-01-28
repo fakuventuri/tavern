@@ -32,3 +32,4 @@ target_sdk_version = 33
 [package.metadata.android.application]
 icon = "@mipmap/icon"
 label = "Tavern" # Done
+orientation = "landscape" # landscape for android
