@@ -133,18 +133,18 @@ jobs:
         uses: actions/setup-dotnet@v3
         with:
           global-json-file: build/windows/installer/global.json
-      - name: Build release
-        run: |
-          cargo build --profile dist
-      - name: Prepare release
-        run: |
-          mkdir target/dist/assets && cp -r assets target/dist/assets
-          mkdir target/dist/credits && cp -r credits target/dist/credits
-      - name: Zip release
-        uses: vimtor/action-zip@v1.1
-        with:
-          files: target/dist/assets/ target/dist/credits/ target/dist/${{ env.GAME_EXECUTABLE_NAME }}.exe
-          dest: ${{ env.GAME_EXECUTABLE_NAME }}_windows.zip
+      # - name: Build release
+      #   run: |
+      #     cargo build --profile dist
+      # - name: Prepare release
+      #   run: |
+      #     mkdir target/dist/assets && cp -r assets target/dist/assets
+      #     mkdir target/dist/credits && cp -r credits target/dist/credits
+      # - name: Zip release
+      #   uses: vimtor/action-zip@v1.1
+      #   with:
+      #     files: target/dist/assets/ target/dist/credits/ target/dist/${{ env.GAME_EXECUTABLE_NAME }}.exe
+      #     dest: ${{ env.GAME_EXECUTABLE_NAME }}_windows.zip
       - uses: bhowell2/github-substring-action@1.0.2
         id: ver
         with:
