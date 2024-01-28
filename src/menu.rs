@@ -15,7 +15,7 @@ impl Plugin for MenuPlugin {
                 allow_dynamic_font_size: true,
                 ..default()
             })
-            .add_systems(OnEnter(GameState::Menu), (setup_camera, setup_menu))
+            .add_systems(OnEnter(GameState::Menu), setup_menu)
             .add_systems(
                 Update,
                 (
@@ -25,14 +25,6 @@ impl Plugin for MenuPlugin {
             )
             .add_systems(OnExit(GameState::Menu), despawn_screen::<OnMenuScreen>);
     }
-}
-
-fn setup_camera(mut commands: Commands) {
-    // Camera
-    commands.spawn(Camera2dBundle::default());
-    // let mut camera_bundle = Camera2dBundle::default();
-    // camera_bundle.projection.scaling_mode = ScalingMode::FixedVertical(1080.0);
-    // commands.spawn(camera_bundle);
 }
 
 #[derive(Component, Clone, Copy)]
