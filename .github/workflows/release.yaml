@@ -23,7 +23,7 @@ on:
         description: "Build for MacOS:"
         type: choice
         required: true
-        default: "true"
+        default: "false"
         options:
           - "true"
           - "false"
@@ -31,7 +31,7 @@ on:
         description: "Build for Linux:"
         type: choice
         required: true
-        default: "true"
+        default: "false"
         options:
           - "true"
           - "false"
@@ -47,7 +47,7 @@ on:
         description: "Build for Android:"
         type: choice
         required: true
-        default: "true"
+        default: "false"
         options:
           - "true"
           - "false"
@@ -55,7 +55,7 @@ on:
         description: "Build for iOS:"
         type: choice
         required: true
-        default: "true"
+        default: "false"
         options:
           - "true"
           - "false"
