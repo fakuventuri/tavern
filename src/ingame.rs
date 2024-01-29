@@ -6,6 +6,8 @@ use bevy::window::PrimaryWindow;
 
 pub struct IngamePlugin;
 
+const CAMERA_SPEED: f32 = 600.;
+
 #[derive(Component)]
 pub struct OnIngameScreen;
 
@@ -35,6 +37,7 @@ impl Plugin for IngamePlugin {
                 (
                     esc_to_pause.run_if(in_state(GameState::Playing)),
                     interactibles_system.run_if(in_state(GameState::Playing)),
+                    move_camera_system.run_if(in_state(GameState::Playing)),
                 ),
             )
             .add_systems(OnExit(GameState::Playing), despawn_screen::<OnIngameScreen>);
@@ -43,6 +46,9 @@ impl Plugin for IngamePlugin {
 
 #[derive(Component)]
 struct MainCamera;
+
+#[derive(Component)]
+struct MoveCameraTo(Option<Vec2>);
 
 fn setup_camera(mut commands: Commands) {
     // Camera
@@ -58,41 +64,79 @@ fn setup_camera(mut commands: Commands) {
     commands
         .spawn(camera_bundle)
         .insert(MainCamera)
+        .insert(MoveCameraTo(None))
         .insert(OnIngameScreen);
 }
 
+#[derive(Component)]
+struct CameraBound(Vec2);
+
 fn setup_ingame(mut commands: Commands, textures: Res<TextureAssets>) {
-    // Black Sprite out of screen to hide sprites out of view with weird resolutions. // ToDo look for a better solution
-    // // Bottom of the Screen
-    // commands
-    //     .spawn(SpriteBundle {
-    //         transform: Transform {
-    //             translation: Vec3::new(0., -1080., 666.),
-    //             scale: Vec3::new(1920., 1080., 0.0),
-    //             ..Default::default()
-    //         },
-    //         sprite: Sprite {
-    //             color: Color::rgb(0., 0., 0.),
-    //             ..default()
-    //         },
-    //         ..Default::default()
-    //     })
-    //     .insert(OnIngameScreen);
-    // // Top of the Screen
-    // commands
-    //     .spawn(SpriteBundle {
-    //         transform: Transform {
-    //             translation: Vec3::new(0., 1080., 666.),
-    //             scale: Vec3::new(1920., 1080., 0.0),
-    //             ..Default::default()
-    //         },
-    //         sprite: Sprite {
-    //             color: Color::rgb(0., 0., 0.),
-    //             ..default()
-    //         },
-    //         ..Default::default()
-    //     })
-    //     .insert(OnIngameScreen);
+    // CameraBounds Black Sprite out of screen to hide sprites out of view with weird resolutions. // ToDo look for a better solution
+    // Bottom of the Screen
+    commands
+        .spawn(SpriteBundle {
+            transform: Transform {
+                translation: Vec3::new(0., -1080., 666.),
+                scale: Vec3::new(1920., 1080., 0.0),
+                ..Default::default()
+            },
+            sprite: Sprite {
+                color: Color::rgb(0., 0., 0.),
+                ..default()
+            },
+            ..Default::default()
+        })
+        .insert(CameraBound(Vec2::new(0., -1080.)))
+        .insert(OnIngameScreen);
+    // Top of the Screen
+    commands
+        .spawn(SpriteBundle {
+            transform: Transform {
+                translation: Vec3::new(0., 1080., 666.),
+                scale: Vec3::new(1920., 1080., 0.0),
+                ..Default::default()
+            },
+            sprite: Sprite {
+                color: Color::rgb(0., 0., 0.),
+                ..default()
+            },
+            ..Default::default()
+        })
+        .insert(CameraBound(Vec2::new(0., 1080.)))
+        .insert(OnIngameScreen);
+    // Left of the Screen
+    commands
+        .spawn(SpriteBundle {
+            transform: Transform {
+                translation: Vec3::new(-1920., 0., 666.),
+                scale: Vec3::new(1920., 1080., 0.0),
+                ..Default::default()
+            },
+            sprite: Sprite {
+                color: Color::rgb(0., 0., 0.),
+                ..default()
+            },
+            ..Default::default()
+        })
+        .insert(CameraBound(Vec2::new(-1920., 0.)))
+        .insert(OnIngameScreen);
+    // Right of the Screen
+    commands
+        .spawn(SpriteBundle {
+            transform: Transform {
+                translation: Vec3::new(1920., 0., 666.),
+                scale: Vec3::new(1920., 1080., 0.0),
+                ..Default::default()
+            },
+            sprite: Sprite {
+                color: Color::rgb(0., 0., 0.),
+                ..default()
+            },
+            ..Default::default()
+        })
+        .insert(CameraBound(Vec2::new(1920., 0.)))
+        .insert(OnIngameScreen);
 
     // Background
     commands
@@ -127,10 +171,43 @@ fn setup_ingame(mut commands: Commands, textures: Res<TextureAssets>) {
         });
 }
 
+fn move_camera_system(
+    mut camera_q: Query<
+        (&mut Transform, &mut MoveCameraTo),
+        (With<MainCamera>, Without<CameraBound>),
+    >,
+    mut bounds_q: Query<(&mut Transform, &CameraBound), Without<MainCamera>>,
+    time: Res<Time>,
+) {
+    let (mut camera_transform, mut move_camera_to) = camera_q.single_mut();
+
+    // info!("{:?}", move_camera_to.0);
+
+    if let Some(target_pos) = move_camera_to.0 {
+        let target = target_pos.extend(0.);
+        let current_position = camera_transform.translation;
+        if current_position.distance(target) > 5. {
+            camera_transform.translation += (target - current_position).normalize_or_zero()
+                * CAMERA_SPEED
+                * time.delta_seconds();
+        } else {
+            camera_transform.translation.x = target.x;
+            camera_transform.translation.y = target.y;
+            move_camera_to.0 = None;
+        }
+    }
+
+    // Adjust CameraBounds
+    for (mut bound_transform, bound) in bounds_q.iter_mut() {
+        bound_transform.translation =
+            (bound.0 + camera_transform.translation.truncate()).extend(666.);
+    }
+}
+
 fn interactibles_system(
     windows_q: Query<&Window, With<PrimaryWindow>>,
     mut camera_q: Query<
-        (&Camera, &GlobalTransform, &mut Transform),
+        (&Camera, &GlobalTransform, &mut MoveCameraTo),
         (With<MainCamera>, Without<Interactible>),
     >,
     mut interactibles_q: Query<(&mut Interactible, &Transform, &Handle<Image>, &mut Sprite)>,
@@ -138,7 +215,7 @@ fn interactibles_system(
     assets: Res<Assets<Image>>,
     buttons: Res<Input<MouseButton>>,
 ) {
-    let (camera, camera_global_transform, mut camera_transform) = camera_q.single_mut();
+    let (camera, camera_global_transform, mut move_camera_to) = camera_q.single_mut();
 
     if let Some(cursor_world_position) = windows_q
         .single()
@@ -191,10 +268,10 @@ fn interactibles_system(
                 // Handle mouse click
                 if buttons.just_pressed(MouseButton::Left) {
                     // Left button was pressed
-                    info!("Clicked: {:?}", interactible.action);
+                    // info!("Clicked: {:?}", interactible.action);
                     handle_interactible_click(
                         interactible.as_mut(),
-                        camera_transform.as_mut(),
+                        move_camera_to.as_mut(),
                         active_interactibles.as_mut(),
                     );
                 }
@@ -219,13 +296,13 @@ fn interactibles_system(
 
 fn handle_interactible_click(
     interactible: &mut Interactible,
-    camera_transform: &mut Transform,
+    move_camera_to: &mut MoveCameraTo,
     active_interactibles: &mut ActiveInteractibleActions,
 ) {
     match interactible.action {
         InteractibleAction::SeeBar => {
-            camera_transform.translation.y = -215.; // -230.
-                                                    // Deactivate SeeBar
+            move_camera_to.0 = Some(Vec2::new(0., -215.)); // -230.
+                                                           // Deactivate SeeBar
             active_interactibles.0.swap_remove(
                 active_interactibles
                     .0
@@ -237,7 +314,7 @@ fn handle_interactible_click(
             active_interactibles.0.push(InteractibleAction::ExitBar);
         }
         InteractibleAction::ExitBar => {
-            camera_transform.translation.y = 0.;
+            move_camera_to.0 = Some(Vec2::new(0., 0.));
             // Deactivate ExitBar
             active_interactibles.0.swap_remove(
                 active_interactibles
