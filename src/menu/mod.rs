@@ -1,14 +1,14 @@
-mod settings;
+pub mod settings;
 
 use crate::loading::TextureAssets;
-use crate::{despawn_screen, exit_game_system, GameState, WindowMode};
+use crate::{despawn_screen, exit_game_system, GameState, ScreenMode};
 use bevy::prelude::*;
 use bevy::text::TextSettings;
 use bevy::time::Stopwatch;
 use bevy::window::WindowResized;
 
 use self::settings::{
-    esc_back_to_main_menu, setting_button_handle, settings_button_colors, settings_menu_setup,
+    esc_back_to_main_menu, setting_button_handle, settings_button_colors, settings_main_menu_setup,
     OnSettingsMenuScreen,
 };
 
@@ -19,7 +19,7 @@ struct OnMainMenuScreen;
 
 // State used for the current menu screen
 #[derive(Clone, Copy, Default, Eq, PartialEq, Debug, Hash, States)]
-enum MenuState {
+pub enum MenuState {
     Main,
     Settings,
     // SettingsDisplay,
@@ -52,11 +52,11 @@ impl Plugin for MenuPlugin {
             )
             .add_systems(OnExit(MenuState::Main), despawn_screen::<OnMainMenuScreen>)
             // MenuState::Settings
-            .add_systems(OnEnter(MenuState::Settings), settings_menu_setup)
+            .add_systems(OnEnter(MenuState::Settings), settings_main_menu_setup)
             .add_systems(
                 Update,
                 (
-                    setting_button_handle::<WindowMode>.run_if(in_state(MenuState::Settings)),
+                    setting_button_handle::<ScreenMode>.run_if(in_state(MenuState::Settings)),
                     settings_button_colors.run_if(in_state(MenuState::Settings)),
                     esc_back_to_main_menu.run_if(in_state(MenuState::Settings)),
                 ),
@@ -73,7 +73,7 @@ impl Plugin for MenuPlugin {
             // General
             .add_systems(Update, handle_buttons)
             // Menu GameState exit
-            .add_systems(OnExit(GameState::Menu), despawn_screen::<MainCamera>);
+            .add_systems(OnExit(GameState::Menu), despawn_screen::<MainCameraMenu>);
     }
 }
 
@@ -82,7 +82,7 @@ fn setup_menu_state(mut menu_state: ResMut<NextState<MenuState>>) {
 }
 
 #[derive(Component)]
-struct MainCamera;
+struct MainCameraMenu;
 
 fn setup_camera(mut commands: Commands) {
     // Camera
@@ -95,7 +95,7 @@ fn setup_camera(mut commands: Commands) {
     camera_bundle.camera_2d.clear_color =
         bevy::core_pipeline::clear_color::ClearColorConfig::Custom(Color::rgb(0.05, 0.05, 0.05));
 
-    commands.spawn(camera_bundle).insert(MainCamera);
+    commands.spawn(camera_bundle).insert(MainCameraMenu);
 }
 
 #[derive(Component, Clone, Copy)]

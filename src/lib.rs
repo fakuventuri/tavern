@@ -37,7 +37,7 @@ enum GameState {
 // Config
 // WindowMode
 #[derive(Resource, Debug, Component, PartialEq, Eq, Clone, Copy)]
-pub enum WindowMode {
+pub enum ScreenMode {
     Windowed,
     BorderlessFullscreen,
 }
@@ -48,7 +48,7 @@ impl Plugin for GamePlugin {
     fn build(&self, app: &mut App) {
         app //
             .add_state::<GameState>()
-            .insert_resource(WindowMode::Windowed)
+            .insert_resource(ScreenMode::Windowed)
             .add_plugins((
                 LoadingPlugin,
                 MenuPlugin,
@@ -70,30 +70,30 @@ impl Plugin for GamePlugin {
 
 fn set_screen_mode_with_keys(
     keyboard_input: Res<Input<KeyCode>>,
-    mut screen_mode: ResMut<WindowMode>,
+    mut screen_mode: ResMut<ScreenMode>,
 ) {
     if keyboard_input.pressed(KeyCode::AltLeft)
         && (keyboard_input.just_pressed(KeyCode::Return) || keyboard_input.just_pressed(KeyCode::F))
     {
         match *screen_mode {
-            WindowMode::Windowed => {
-                *screen_mode = WindowMode::BorderlessFullscreen;
+            ScreenMode::Windowed => {
+                *screen_mode = ScreenMode::BorderlessFullscreen;
             }
-            WindowMode::BorderlessFullscreen => {
-                *screen_mode = WindowMode::Windowed;
+            ScreenMode::BorderlessFullscreen => {
+                *screen_mode = ScreenMode::Windowed;
             }
         }
     }
 }
 
-fn screen_mode_with_resource(screen_mode: Res<WindowMode>, mut windows: Query<&mut Window>) {
+fn screen_mode_with_resource(screen_mode: Res<ScreenMode>, mut windows: Query<&mut Window>) {
     if screen_mode.is_changed() {
         let mut window = windows.single_mut();
         match *screen_mode {
-            WindowMode::BorderlessFullscreen => {
+            ScreenMode::BorderlessFullscreen => {
                 window.mode = bevy::window::WindowMode::BorderlessFullscreen
             }
-            WindowMode::Windowed => window.mode = bevy::window::WindowMode::Windowed,
+            ScreenMode::Windowed => window.mode = bevy::window::WindowMode::Windowed,
         }
     }
 }

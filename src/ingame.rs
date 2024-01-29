@@ -1,6 +1,9 @@
 use crate::loading::TextureAssets;
+use crate::menu::settings::{
+    setting_button_handle, settings_button_colors, settings_pause_setup, OnSettingsMenuScreen,
+};
 use crate::menu::{menu_button, ButtonColors};
-use crate::{despawn_screen, remove_value_from_vec, GameState};
+use crate::{despawn_screen, remove_value_from_vec, GameState, ScreenMode};
 use bevy::prelude::*;
 use bevy::sprite::collide_aabb::collide;
 use bevy::window::PrimaryWindow;
@@ -16,9 +19,10 @@ pub struct OnIngameScreen;
 struct OnPauseUI;
 
 #[derive(Clone, Copy, Default, Eq, PartialEq, Debug, Hash, States)]
-enum IngameState {
+pub enum IngameState {
     Running,
     Paused,
+    Settings,
     ToMenu,
     #[default]
     Diabled,
@@ -53,7 +57,7 @@ impl Plugin for IngamePlugin {
             .add_systems(
                 Update,
                 (
-                    esc_to_pause.run_if(in_state(GameState::Playing)),
+                    handle_esc.run_if(in_state(GameState::Playing)),
                     interactibles_system.run_if(in_state(IngameState::Running)),
                     move_camera_system.run_if(in_state(IngameState::Running)),
                 ),
@@ -62,6 +66,20 @@ impl Plugin for IngamePlugin {
             .add_systems(OnEnter(IngameState::Paused), setup_pause_menu)
             .add_systems(Update, handle_button.run_if(in_state(IngameState::Paused)))
             .add_systems(OnExit(IngameState::Paused), despawn_screen::<OnPauseMenu>)
+            // IngameState::Settings
+            .add_systems(OnEnter(IngameState::Settings), settings_pause_setup)
+            .add_systems(
+                Update,
+                (
+                    handle_button.run_if(in_state(IngameState::Settings)),
+                    setting_button_handle::<ScreenMode>.run_if(in_state(IngameState::Settings)),
+                    settings_button_colors.run_if(in_state(IngameState::Settings)),
+                ),
+            )
+            .add_systems(
+                OnExit(IngameState::Settings),
+                despawn_screen::<OnSettingsMenuScreen>,
+            )
             // To Main Menu
             .add_systems(OnEnter(IngameState::ToMenu), go_to_menu)
             .add_systems(OnExit(GameState::Playing), despawn_screen::<OnIngameScreen>);
@@ -69,7 +87,7 @@ impl Plugin for IngamePlugin {
 }
 
 #[derive(Component)]
-struct MainCamera;
+pub struct MainCameraIngame;
 
 #[derive(Component)]
 struct MoveCameraTo(Option<Vec2>);
@@ -153,7 +171,7 @@ fn setup_camera(mut commands: Commands) {
 
     commands
         .spawn(camera_bundle)
-        .insert(MainCamera)
+        .insert(MainCameraIngame)
         .insert(MoveCameraTo(None))
         .insert(OnIngameScreen);
 }
@@ -264,9 +282,9 @@ fn setup_ingame(
 fn move_camera_system(
     mut camera_q: Query<
         (&mut Transform, &mut MoveCameraTo),
-        (With<MainCamera>, Without<CameraBound>),
+        (With<MainCameraIngame>, Without<CameraBound>),
     >,
-    mut bounds_q: Query<(&mut Transform, &CameraBound), Without<MainCamera>>,
+    mut bounds_q: Query<(&mut Transform, &CameraBound), Without<MainCameraIngame>>,
     time: Res<Time>,
 ) {
     let (mut camera_transform, mut move_camera_to) = camera_q.single_mut();
@@ -298,7 +316,7 @@ fn interactibles_system(
     windows_q: Query<&Window, With<PrimaryWindow>>,
     mut camera_q: Query<
         (&Camera, &GlobalTransform, &mut MoveCameraTo),
-        (With<MainCamera>, Without<Interactible>),
+        (With<MainCameraIngame>, Without<Interactible>),
     >,
     mut interactibles_q: Query<(&mut Interactible, &Transform, &Handle<Image>, &mut Sprite)>,
     mut active_interactibles_q: Query<&mut ActiveInteractibleActions>,
@@ -423,15 +441,16 @@ fn handle_interactible_click(
 struct OnPauseMenu;
 
 #[derive(Component)]
-enum PauseButtonAction {
+pub enum PauseButtonAction {
     Resume,
     Settings,
+    BackToPaused,
     MainMenu(bool),
 }
 
-fn setup_pause_menu(mut commands: Commands, camera_q: Query<&Transform, With<MainCamera>>) {
-    let camera_transform = camera_q.single();
+fn setup_pause_menu(mut commands: Commands, camera_q: Query<&Transform, With<MainCameraIngame>>) {
     // Transparent Pause background
+    let camera_transform = camera_q.single();
     commands
         .spawn(SpriteBundle {
             transform: Transform {
@@ -583,7 +602,8 @@ fn handle_button(
                 if let Some(mut action) = pause_button_action {
                     match *action {
                         PauseButtonAction::Resume => ingame_state.set(IngameState::Running),
-                        PauseButtonAction::Settings => {}
+                        PauseButtonAction::Settings => ingame_state.set(IngameState::Settings),
+                        PauseButtonAction::BackToPaused => ingame_state.set(IngameState::Paused),
                         PauseButtonAction::MainMenu(confirm) => {
                             if !confirm {
                                 button_colors.normal = Color::rgb(0.5, 0.2, 0.2);
@@ -606,18 +626,19 @@ fn handle_button(
     }
 }
 
-fn esc_to_pause(
+fn handle_esc(
     mut keys: ResMut<Input<KeyCode>>,
     ingame_state: Res<State<IngameState>>,
     mut ingame_next_state: ResMut<NextState<IngameState>>,
 ) {
     if keys.just_pressed(KeyCode::Escape) {
+        keys.reset(KeyCode::Escape);
         match *ingame_state.get() {
             IngameState::Running => ingame_next_state.set(IngameState::Paused),
             IngameState::Paused => ingame_next_state.set(IngameState::Running),
+            IngameState::Settings => ingame_next_state.set(IngameState::Paused),
             _ => {}
         }
-        keys.reset(KeyCode::Escape);
     }
 }
 
