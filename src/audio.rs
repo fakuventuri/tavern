@@ -11,13 +11,14 @@ impl Plugin for InternalAudioPlugin {
     fn build(&self, app: &mut App) {
         app //
             .add_plugins(AudioPlugin)
-            .add_systems(OnEnter(GameState::Playing), start_audio)
-            .add_systems(
-                Update,
-                control_flying_sound
-                    .after(set_movement_actions)
-                    .run_if(in_state(GameState::Playing)),
-            );
+            // .add_systems(OnEnter(GameState::Playing), start_audio)
+            // .add_systems(
+            //     Update,
+            //     control_flying_sound
+            //         .after(set_movement_actions)
+            //         .run_if(in_state(GameState::Playing)),
+            // )
+            ;
     }
 }
 

@@ -3,7 +3,6 @@ use bevy::prelude::*;
 
 use crate::actions::game_control::{get_movement, GameControl};
 use crate::player::Player;
-use crate::GameState;
 
 mod game_control;
 
@@ -16,12 +15,12 @@ pub struct ActionsPlugin;
 impl Plugin for ActionsPlugin {
     fn build(&self, app: &mut App) {
         app //
-            .init_resource::<Actions>()
+            // .init_resource::<Actions>()
             .add_systems(
                 Update,
                 (
                     set_fullscreen,
-                    set_movement_actions.run_if(in_state(GameState::Playing)),
+                    // set_movement_actions.run_if(in_state(GameState::Playing)),
                 ),
             );
     }

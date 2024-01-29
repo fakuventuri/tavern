@@ -39,4 +39,6 @@ pub struct TextureAssets {
     pub tavern_bg: Handle<Image>,
     #[asset(path = "textures/counter.png")]
     pub counter: Handle<Image>,
+    #[asset(path = "textures/barrel.png")]
+    pub barrel: Handle<Image>,
 }

@@ -6,7 +6,7 @@ use bevy::window::PrimaryWindow;
 
 pub struct IngamePlugin;
 
-const CAMERA_SPEED: f32 = 600.;
+const CAMERA_SPEED: f32 = 650.;
 
 #[derive(Component)]
 pub struct OnIngameScreen;
@@ -15,6 +15,7 @@ pub struct OnIngameScreen;
 enum InteractibleAction {
     SeeBar,
     ExitBar,
+    BeerBarrel,
     _None,
 }
 
@@ -23,15 +24,17 @@ struct Interactible {
     action: InteractibleAction,
 }
 
-#[derive(Resource)]
+#[derive(Component)]
 struct ActiveInteractibleActions(Vec<InteractibleAction>);
+
+#[derive(Component)]
+struct IgnoredInteractibleActions(Vec<InteractibleAction>);
 
 /// IngamePlugin logic is only active during the State `GameState::Playing`
 impl Plugin for IngamePlugin {
     fn build(&self, app: &mut App) {
         app //
-            .insert_resource(ActiveInteractibleActions(vec![InteractibleAction::SeeBar]))
-            .add_systems(OnEnter(GameState::Playing), (setup_ingame, setup_camera))
+            .add_systems(OnEnter(GameState::Playing), (setup_camera, setup_ingame))
             .add_systems(
                 Update,
                 (
@@ -51,28 +54,7 @@ struct MainCamera;
 struct MoveCameraTo(Option<Vec2>);
 
 fn setup_camera(mut commands: Commands) {
-    // Camera
-    let mut camera_bundle = Camera2dBundle::default();
-
-    camera_bundle.projection.scaling_mode = bevy::render::camera::ScalingMode::AutoMin {
-        min_width: 1920.,
-        min_height: 1080.,
-    };
-    // camera_bundle.camera_2d.clear_color =
-    //     bevy::core_pipeline::clear_color::ClearColorConfig::Custom(Color::rgb(0.5, 0.5, 0.5));
-
-    commands
-        .spawn(camera_bundle)
-        .insert(MainCamera)
-        .insert(MoveCameraTo(None))
-        .insert(OnIngameScreen);
-}
-
-#[derive(Component)]
-struct CameraBound(Vec2);
-
-fn setup_ingame(mut commands: Commands, textures: Res<TextureAssets>) {
-    // CameraBounds Black Sprite out of screen to hide sprites out of view with weird resolutions. // ToDo look for a better solution
+    // CameraBounds Black Sprite out of screen to hide sprites out of view in weird resolutions. // ToDo look for a better solution
     // Bottom of the Screen
     commands
         .spawn(SpriteBundle {
@@ -138,6 +120,40 @@ fn setup_ingame(mut commands: Commands, textures: Res<TextureAssets>) {
         .insert(CameraBound(Vec2::new(1920., 0.)))
         .insert(OnIngameScreen);
 
+    // Camera
+    let mut camera_bundle = Camera2dBundle::default();
+
+    camera_bundle.projection.scaling_mode = bevy::render::camera::ScalingMode::AutoMin {
+        min_width: 1920.,
+        min_height: 1080.,
+    };
+    // camera_bundle.camera_2d.clear_color =
+    //     bevy::core_pipeline::clear_color::ClearColorConfig::Custom(Color::rgb(0.5, 0.5, 0.5));
+
+    commands
+        .spawn(camera_bundle)
+        .insert(MainCamera)
+        .insert(MoveCameraTo(None))
+        .insert(OnIngameScreen);
+}
+
+#[derive(Component)]
+struct CameraBound(Vec2);
+
+fn setup_ingame(mut commands: Commands, textures: Res<TextureAssets>) {
+    // ActiveInteractibleActions
+    commands
+        .spawn(ActiveInteractibleActions(vec![
+            InteractibleAction::SeeBar,
+            InteractibleAction::BeerBarrel,
+        ]))
+        .insert(OnIngameScreen);
+    // IgnoredInteractibleActions
+    commands
+        .spawn(IgnoredInteractibleActions(vec![
+            InteractibleAction::BeerBarrel,
+        ]))
+        .insert(OnIngameScreen);
     // Background
     commands
         .spawn(SpriteBundle {
@@ -159,7 +175,7 @@ fn setup_ingame(mut commands: Commands, textures: Res<TextureAssets>) {
         .spawn(SpriteBundle {
             texture: textures.counter.clone(),
             transform: Transform {
-                translation: Vec3::new(0., -540., 0.),
+                translation: Vec3::new(0., -600., 0.), // y: -540.
                 scale: Vec3::new(1.5, 1.5, 0.0),
                 ..Default::default()
             },
@@ -168,6 +184,52 @@ fn setup_ingame(mut commands: Commands, textures: Res<TextureAssets>) {
         .insert(OnIngameScreen)
         .insert(Interactible {
             action: InteractibleAction::SeeBar,
+        });
+
+    // BeerBarrels
+    commands
+        .spawn(SpriteBundle {
+            texture: textures.barrel.clone(),
+            transform: Transform {
+                translation: Vec3::new(750., -615., 4.),
+                scale: Vec3::new(1.5, 1.5, 0.0),
+                ..Default::default()
+            },
+            ..Default::default()
+        })
+        .insert(OnIngameScreen)
+        .insert(Interactible {
+            action: InteractibleAction::BeerBarrel,
+        });
+
+    commands
+        .spawn(SpriteBundle {
+            texture: textures.barrel.clone(),
+            transform: Transform {
+                translation: Vec3::new(400., -615., 3.),
+                scale: Vec3::new(1.5, 1.5, 0.0),
+                ..Default::default()
+            },
+            ..Default::default()
+        })
+        .insert(OnIngameScreen)
+        .insert(Interactible {
+            action: InteractibleAction::BeerBarrel,
+        });
+
+    commands
+        .spawn(SpriteBundle {
+            texture: textures.barrel.clone(),
+            transform: Transform {
+                translation: Vec3::new(50., -615., 2.),
+                scale: Vec3::new(1.5, 1.5, 0.0),
+                ..Default::default()
+            },
+            ..Default::default()
+        })
+        .insert(OnIngameScreen)
+        .insert(Interactible {
+            action: InteractibleAction::BeerBarrel,
         });
 }
 
@@ -211,7 +273,8 @@ fn interactibles_system(
         (With<MainCamera>, Without<Interactible>),
     >,
     mut interactibles_q: Query<(&mut Interactible, &Transform, &Handle<Image>, &mut Sprite)>,
-    mut active_interactibles: ResMut<ActiveInteractibleActions>,
+    mut active_interactibles_q: Query<&mut ActiveInteractibleActions>,
+    mut ignored_interactibles_q: Query<&mut IgnoredInteractibleActions>,
     assets: Res<Assets<Image>>,
     buttons: Res<Input<MouseButton>>,
 ) {
@@ -224,6 +287,9 @@ fn interactibles_system(
     {
         // Cursor is inside the primary window, at 'world_position'
 
+        // Active Interactibles
+        let mut active_interactibles = active_interactibles_q.single_mut();
+        let mut ignored_interactibles = ignored_interactibles_q.single_mut();
         // Sort interactibles by Z index to interact only with the higher one
         let mut interactibles = interactibles_q.iter_mut().collect::<Vec<_>>();
         interactibles.sort_by(|a, b| b.1.translation.z.total_cmp(&a.1.translation.z));
@@ -237,7 +303,7 @@ fn interactibles_system(
             mut interactible_sprite,
         ) in interactibles
         {
-            if found_collision {
+            if ignored_interactibles.0.contains(&interactible.action) || found_collision {
                 interactible_sprite.color = Color::rgb(1., 1., 1.);
                 continue;
             }
@@ -273,6 +339,7 @@ fn interactibles_system(
                         interactible.as_mut(),
                         move_camera_to.as_mut(),
                         active_interactibles.as_mut(),
+                        ignored_interactibles.as_mut(),
                     );
                 }
             } else {
@@ -298,34 +365,28 @@ fn handle_interactible_click(
     interactible: &mut Interactible,
     move_camera_to: &mut MoveCameraTo,
     active_interactibles: &mut ActiveInteractibleActions,
+    ignored_interactibles: &mut IgnoredInteractibleActions,
 ) {
     match interactible.action {
         InteractibleAction::SeeBar => {
-            move_camera_to.0 = Some(Vec2::new(0., -215.)); // -230.
-                                                           // Deactivate SeeBar
-            active_interactibles.0.swap_remove(
-                active_interactibles
-                    .0
-                    .iter()
-                    .position(|x| *x == InteractibleAction::SeeBar)
-                    .expect("InteractibleAction to remove is not active."),
-            );
+            move_camera_to.0 = Some(Vec2::new(0., -275.));
+            // Deactivate SeeBar
+            remove_value_from_vec(InteractibleAction::SeeBar, &mut active_interactibles.0);
+            // Stop ignoring BeerBarrel
+            remove_value_from_vec(InteractibleAction::BeerBarrel, &mut ignored_interactibles.0);
             // Activate ExitBar
             active_interactibles.0.push(InteractibleAction::ExitBar);
         }
         InteractibleAction::ExitBar => {
             move_camera_to.0 = Some(Vec2::new(0., 0.));
             // Deactivate ExitBar
-            active_interactibles.0.swap_remove(
-                active_interactibles
-                    .0
-                    .iter()
-                    .position(|x| *x == InteractibleAction::ExitBar)
-                    .expect("InteractibleAction to remove is not active."),
-            );
+            remove_value_from_vec(InteractibleAction::ExitBar, &mut active_interactibles.0);
+            // Ignore BeerBarrel
+            ignored_interactibles.0.push(InteractibleAction::BeerBarrel);
             // Activate SeeBar
             active_interactibles.0.push(InteractibleAction::SeeBar);
         }
+        InteractibleAction::BeerBarrel => {}
         InteractibleAction::_None => {}
     }
 }
@@ -336,4 +397,12 @@ fn esc_to_pause(mut keys: ResMut<Input<KeyCode>>, mut game_state: ResMut<NextSta
         game_state.set(GameState::Menu);
         keys.reset(KeyCode::Escape);
     }
+}
+
+fn remove_value_from_vec<T: PartialEq>(value_to_remove: T, vec: &mut Vec<T>) {
+    vec.swap_remove(
+        vec.iter()
+            .position(|x| *x == value_to_remove)
+            .expect("InteractibleAction to remove is not active."),
+    );
 }
