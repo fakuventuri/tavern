@@ -34,12 +34,21 @@ enum GameState {
     Menu,
 }
 
+// Config
+// WindowMode
+#[derive(Resource, Debug, Component, PartialEq, Eq, Clone, Copy)]
+pub enum WindowMode {
+    Windowed,
+    BorderlessFullscreen,
+}
+
 pub struct GamePlugin;
 
 impl Plugin for GamePlugin {
     fn build(&self, app: &mut App) {
         app //
             .add_state::<GameState>()
+            .insert_resource(WindowMode::Windowed)
             .add_plugins((
                 LoadingPlugin,
                 MenuPlugin,
@@ -47,7 +56,10 @@ impl Plugin for GamePlugin {
                 InternalAudioPlugin,
                 IngamePlugin,
             ))
-            .add_systems(Update, set_fullscreen);
+            .add_systems(
+                Update,
+                (screen_mode_with_resource, set_screen_mode_with_keys),
+            );
 
         #[cfg(debug_assertions)]
         {
@@ -56,20 +68,32 @@ impl Plugin for GamePlugin {
     }
 }
 
-fn set_fullscreen(keyboard_input: Res<Input<KeyCode>>, mut windows: Query<&mut Window>) {
+fn set_screen_mode_with_keys(
+    keyboard_input: Res<Input<KeyCode>>,
+    mut screen_mode: ResMut<WindowMode>,
+) {
     if keyboard_input.pressed(KeyCode::AltLeft)
         && (keyboard_input.just_pressed(KeyCode::Return) || keyboard_input.just_pressed(KeyCode::F))
     {
-        // keyboard_input.reset(KeyCode::Return);
+        match *screen_mode {
+            WindowMode::Windowed => {
+                *screen_mode = WindowMode::BorderlessFullscreen;
+            }
+            WindowMode::BorderlessFullscreen => {
+                *screen_mode = WindowMode::Windowed;
+            }
+        }
+    }
+}
+
+fn screen_mode_with_resource(screen_mode: Res<WindowMode>, mut windows: Query<&mut Window>) {
+    if screen_mode.is_changed() {
         let mut window = windows.single_mut();
-        match window.mode {
-            bevy::window::WindowMode::Windowed => {
+        match *screen_mode {
+            WindowMode::BorderlessFullscreen => {
                 window.mode = bevy::window::WindowMode::BorderlessFullscreen
             }
-            bevy::window::WindowMode::BorderlessFullscreen => {
-                window.mode = bevy::window::WindowMode::Windowed
-            }
-            _ => {}
+            WindowMode::Windowed => window.mode = bevy::window::WindowMode::Windowed,
         }
     }
 }

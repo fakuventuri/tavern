@@ -468,8 +468,8 @@ fn setup_pause_menu(mut commands: Commands, camera_q: Query<&Transform, With<Mai
             },
             OnPauseMenu,
         ))
-        .with_children(|children| {
-            children.spawn(
+        .with_children(|parent| {
+            parent.spawn(
                 TextBundle::from_section(
                     "Tavern",
                     TextStyle {
@@ -514,7 +514,7 @@ fn setup_pause_menu(mut commands: Commands, camera_q: Query<&Transform, With<Mai
             },
             OnPauseMenu,
         ))
-        .with_children(|children| {
+        .with_children(|parent| {
             let button_style = Style {
                 width: Val::Px(300.0),
                 // height: Val::Px(50.0),
@@ -531,7 +531,7 @@ fn setup_pause_menu(mut commands: Commands, camera_q: Query<&Transform, With<Mai
             };
 
             menu_button(
-                children,
+                parent,
                 "Resume",
                 PauseButtonAction::Resume,
                 &button_style,
@@ -543,7 +543,7 @@ fn setup_pause_menu(mut commands: Commands, camera_q: Query<&Transform, With<Mai
             );
 
             menu_button(
-                children,
+                parent,
                 "Settings",
                 PauseButtonAction::Settings,
                 &button_style,
@@ -552,7 +552,7 @@ fn setup_pause_menu(mut commands: Commands, camera_q: Query<&Transform, With<Mai
             );
 
             menu_button(
-                children,
+                parent,
                 "Main Menu",
                 PauseButtonAction::MainMenu(false),
                 &button_style,
