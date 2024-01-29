@@ -1,7 +1,7 @@
 use crate::loading::TextureAssets;
 use crate::{despawn_screen, GameState};
 use bevy::prelude::*;
-use bevy::sprite::collide_aabb::{collide, Collision};
+use bevy::sprite::collide_aabb::collide;
 use bevy::window::PrimaryWindow;
 
 pub struct IngamePlugin;
@@ -9,28 +9,32 @@ pub struct IngamePlugin;
 #[derive(Component)]
 pub struct OnIngameScreen;
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 enum InteractibleAction {
     SeeBar,
     ExitBar,
-    None,
+    _None,
 }
 
 #[derive(Component, Debug)]
 struct Interactible {
-    active: bool,
     action: InteractibleAction,
 }
+
+#[derive(Resource)]
+struct ActiveInteractibleActions(Vec<InteractibleAction>);
 
 /// IngamePlugin logic is only active during the State `GameState::Playing`
 impl Plugin for IngamePlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(OnEnter(GameState::Playing), (setup_ingame, setup_camera))
+        app //
+            .insert_resource(ActiveInteractibleActions(vec![InteractibleAction::SeeBar]))
+            .add_systems(OnEnter(GameState::Playing), (setup_ingame, setup_camera))
             .add_systems(
                 Update,
                 (
                     esc_to_pause.run_if(in_state(GameState::Playing)),
-                    handle_interaction.run_if(in_state(GameState::Playing)),
+                    interactibles_system.run_if(in_state(GameState::Playing)),
                 ),
             )
             .add_systems(OnExit(GameState::Playing), despawn_screen::<OnIngameScreen>);
@@ -59,36 +63,36 @@ fn setup_camera(mut commands: Commands) {
 
 fn setup_ingame(mut commands: Commands, textures: Res<TextureAssets>) {
     // Black Sprite out of screen to hide sprites out of view with weird resolutions. // ToDo look for a better solution
-    // Bottom of the Screen
-    commands
-        .spawn(SpriteBundle {
-            transform: Transform {
-                translation: Vec3::new(0., -1080., 666.),
-                scale: Vec3::new(1920., 1080., 0.0),
-                ..Default::default()
-            },
-            sprite: Sprite {
-                color: Color::rgb(0., 0., 0.),
-                ..default()
-            },
-            ..Default::default()
-        })
-        .insert(OnIngameScreen);
-    // Top of the Screen
-    commands
-        .spawn(SpriteBundle {
-            transform: Transform {
-                translation: Vec3::new(0., 1080., 666.),
-                scale: Vec3::new(1920., 1080., 0.0),
-                ..Default::default()
-            },
-            sprite: Sprite {
-                color: Color::rgb(0., 0., 0.),
-                ..default()
-            },
-            ..Default::default()
-        })
-        .insert(OnIngameScreen);
+    // // Bottom of the Screen
+    // commands
+    //     .spawn(SpriteBundle {
+    //         transform: Transform {
+    //             translation: Vec3::new(0., -1080., 666.),
+    //             scale: Vec3::new(1920., 1080., 0.0),
+    //             ..Default::default()
+    //         },
+    //         sprite: Sprite {
+    //             color: Color::rgb(0., 0., 0.),
+    //             ..default()
+    //         },
+    //         ..Default::default()
+    //     })
+    //     .insert(OnIngameScreen);
+    // // Top of the Screen
+    // commands
+    //     .spawn(SpriteBundle {
+    //         transform: Transform {
+    //             translation: Vec3::new(0., 1080., 666.),
+    //             scale: Vec3::new(1920., 1080., 0.0),
+    //             ..Default::default()
+    //         },
+    //         sprite: Sprite {
+    //             color: Color::rgb(0., 0., 0.),
+    //             ..default()
+    //         },
+    //         ..Default::default()
+    //     })
+    //     .insert(OnIngameScreen);
 
     // Background
     commands
@@ -103,7 +107,6 @@ fn setup_ingame(mut commands: Commands, textures: Res<TextureAssets>) {
         })
         .insert(OnIngameScreen)
         .insert(Interactible {
-            active: true,
             action: InteractibleAction::ExitBar,
         });
 
@@ -120,39 +123,44 @@ fn setup_ingame(mut commands: Commands, textures: Res<TextureAssets>) {
         })
         .insert(OnIngameScreen)
         .insert(Interactible {
-            active: true,
             action: InteractibleAction::SeeBar,
         });
 }
 
-fn handle_interaction(
+fn interactibles_system(
     windows_q: Query<&Window, With<PrimaryWindow>>,
-    camera_q: Query<(&Camera, &GlobalTransform), With<MainCamera>>,
-    mut interactibles_q: Query<(&Interactible, &Transform, &Handle<Image>, &mut Sprite)>,
+    mut camera_q: Query<
+        (&Camera, &GlobalTransform, &mut Transform),
+        (With<MainCamera>, Without<Interactible>),
+    >,
+    mut interactibles_q: Query<(&mut Interactible, &Transform, &Handle<Image>, &mut Sprite)>,
+    mut active_interactibles: ResMut<ActiveInteractibleActions>,
     assets: Res<Assets<Image>>,
-    // buttons: Res<Input<MouseButton>>,
+    buttons: Res<Input<MouseButton>>,
 ) {
-    let (camera, camera_transform) = camera_q.single();
+    let (camera, camera_global_transform, mut camera_transform) = camera_q.single_mut();
 
     if let Some(cursor_world_position) = windows_q
         .single()
         .cursor_position()
-        .and_then(|cursor| camera.viewport_to_world_2d(camera_transform, cursor))
+        .and_then(|cursor| camera.viewport_to_world_2d(camera_global_transform, cursor))
     {
         // Cursor is inside the primary window, at 'world_position'
+
+        // Sort interactibles by Z index to interact only with the higher one
         let mut interactibles = interactibles_q.iter_mut().collect::<Vec<_>>();
         interactibles.sort_by(|a, b| b.1.translation.z.total_cmp(&a.1.translation.z));
 
         let mut found_collision = false;
 
         for (
-            interactible,
+            mut interactible,
             interactible_transform,
             interactible_image_handle,
             mut interactible_sprite,
         ) in interactibles
         {
-            if !interactible.active || found_collision {
+            if found_collision {
                 interactible_sprite.color = Color::rgb(1., 1., 1.);
                 continue;
             }
@@ -168,10 +176,28 @@ fn handle_interaction(
                 Vec2::ONE,
             ) {
                 // Collision with mouse. Type Collision::Inside
+
+                // Set bool to ignore the other interactibles
+                found_collision = true;
+
+                if !active_interactibles.0.contains(&interactible.action) {
+                    interactible_sprite.color = Color::rgb(1., 1., 1.);
+                    continue;
+                }
+
                 // Highlight
                 interactible_sprite.color = Color::rgb(1.3, 1.3, 1.3);
 
-                found_collision = true;
+                // Handle mouse click
+                if buttons.just_pressed(MouseButton::Left) {
+                    // Left button was pressed
+                    info!("Clicked: {:?}", interactible.action);
+                    handle_interactible_click(
+                        interactible.as_mut(),
+                        camera_transform.as_mut(),
+                        active_interactibles.as_mut(),
+                    );
+                }
             } else {
                 // Reset Highlight
                 interactible_sprite.color = Color::rgb(1., 1., 1.);
@@ -188,6 +214,42 @@ fn handle_interaction(
         {
             interactible_sprite.color = Color::rgb(1., 1., 1.);
         }
+    }
+}
+
+fn handle_interactible_click(
+    interactible: &mut Interactible,
+    camera_transform: &mut Transform,
+    active_interactibles: &mut ActiveInteractibleActions,
+) {
+    match interactible.action {
+        InteractibleAction::SeeBar => {
+            camera_transform.translation.y = -215.; // -230.
+                                                    // Deactivate SeeBar
+            active_interactibles.0.swap_remove(
+                active_interactibles
+                    .0
+                    .iter()
+                    .position(|x| *x == InteractibleAction::SeeBar)
+                    .expect("InteractibleAction to remove is not active."),
+            );
+            // Activate ExitBar
+            active_interactibles.0.push(InteractibleAction::ExitBar);
+        }
+        InteractibleAction::ExitBar => {
+            camera_transform.translation.y = 0.;
+            // Deactivate ExitBar
+            active_interactibles.0.swap_remove(
+                active_interactibles
+                    .0
+                    .iter()
+                    .position(|x| *x == InteractibleAction::ExitBar)
+                    .expect("InteractibleAction to remove is not active."),
+            );
+            // Activate SeeBar
+            active_interactibles.0.push(InteractibleAction::SeeBar);
+        }
+        InteractibleAction::_None => {}
     }
 }
 
