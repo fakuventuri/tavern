@@ -2,7 +2,7 @@ use bevy::math::Vec3Swizzles;
 use bevy::prelude::*;
 
 use crate::actions::game_control::{get_movement, GameControl};
-use crate::ingame::Player;
+use crate::player::Player;
 use crate::GameState;
 
 mod game_control;
@@ -15,10 +15,15 @@ pub struct ActionsPlugin;
 // Actions can then be used as a resource in other systems to act on the player input.
 impl Plugin for ActionsPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<Actions>().add_systems(
-            Update,
-            set_movement_actions.run_if(in_state(GameState::Playing)),
-        );
+        app //
+            .init_resource::<Actions>()
+            .add_systems(
+                Update,
+                (
+                    set_fullscreen,
+                    set_movement_actions.run_if(in_state(GameState::Playing)),
+                ),
+            );
     }
 }
 
@@ -56,5 +61,21 @@ pub fn set_movement_actions(
         actions.player_movement = Some(player_movement.normalize());
     } else {
         actions.player_movement = None;
+    }
+}
+
+fn set_fullscreen(keyboard_input: Res<Input<KeyCode>>, mut windows: Query<&mut Window>) {
+    if keyboard_input.pressed(KeyCode::AltLeft) && keyboard_input.just_pressed(KeyCode::Return) {
+        // keyboard_input.reset(KeyCode::Return);
+        let mut window = windows.single_mut();
+        match window.mode {
+            bevy::window::WindowMode::Windowed => {
+                window.mode = bevy::window::WindowMode::BorderlessFullscreen
+            }
+            bevy::window::WindowMode::BorderlessFullscreen => {
+                window.mode = bevy::window::WindowMode::Windowed
+            }
+            _ => {}
+        }
     }
 }
