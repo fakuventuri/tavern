@@ -13,6 +13,7 @@ impl Plugin for LoadingPlugin {
         app.add_loading_state(
             LoadingState::new(GameState::Loading)
                 .continue_to_state(GameState::Menu)
+                // .on_failure_continue_to_state(GameState::Menu) // Bad
                 .load_collection::<AudioAssets>()
                 .load_collection::<TextureAssets>(),
         );
@@ -34,4 +35,8 @@ pub struct TextureAssets {
     pub bevy: Handle<Image>,
     #[asset(path = "textures/github.png")]
     pub github: Handle<Image>,
+    #[asset(path = "textures/backgrounds/tavern_bg.jpg")]
+    pub tavern_bg: Handle<Image>,
+    #[asset(path = "textures/counter.png")]
+    pub counter: Handle<Image>,
 }

@@ -1,5 +1,4 @@
 use crate::loading::TextureAssets;
-use crate::player::{move_player, PlayerBundle};
 use crate::{despawn_screen, GameState};
 use bevy::prelude::*;
 
@@ -13,13 +12,7 @@ pub struct OnIngameScreen;
 impl Plugin for IngamePlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(OnEnter(GameState::Playing), (setup_ingame, setup_camera))
-            .add_systems(
-                Update,
-                (
-                    esc_to_pause.run_if(in_state(GameState::Playing)),
-                    move_player.run_if(in_state(GameState::Playing)),
-                ),
-            )
+            .add_systems(Update, (esc_to_pause.run_if(in_state(GameState::Playing)),))
             .add_systems(OnExit(GameState::Playing), despawn_screen::<OnIngameScreen>);
     }
 }
@@ -39,8 +32,30 @@ fn setup_camera(mut commands: Commands) {
 }
 
 fn setup_ingame(mut commands: Commands, textures: Res<TextureAssets>) {
+    // Background
     commands
-        .spawn(PlayerBundle::new(textures))
+        .spawn(SpriteBundle {
+            texture: textures.tavern_bg.clone(),
+            transform: Transform {
+                translation: Vec3::new(0., 0., -1.),
+                scale: Vec3::new(1.5, 1.5, 0.0),
+                ..Default::default()
+            },
+            ..Default::default()
+        })
+        .insert(OnIngameScreen);
+
+    // Counter
+    commands
+        .spawn(SpriteBundle {
+            texture: textures.counter.clone(),
+            transform: Transform {
+                translation: Vec3::new(0., -540., -1.),
+                scale: Vec3::new(1.5, 1.5, 0.0),
+                ..Default::default()
+            },
+            ..Default::default()
+        })
         .insert(OnIngameScreen);
 }
 

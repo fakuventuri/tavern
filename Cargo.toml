@@ -1,6 +1,6 @@
 [package]
 name = "tavern"                                  # Done
-version = "0.3.1"
+version = "0.3.2"
 publish = false
 authors = ["Facundo Venturi"]                    # Done
 edition = "2021"
@@ -52,6 +52,7 @@ bevy = { version = "0.12", default-features = false, features = [
     "bevy_ui",
     "multi-threaded",
     "png",
+    "jpeg",
     "hdr",
     "x11",
     "bevy_gizmos",
