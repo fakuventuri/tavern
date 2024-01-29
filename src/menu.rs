@@ -1,6 +1,5 @@
 use crate::loading::TextureAssets;
-use crate::{despawn_screen, GameState};
-use bevy::app::AppExit;
+use crate::{despawn_screen, exit_game_system, GameState};
 use bevy::prelude::*;
 use bevy::text::TextSettings;
 use bevy::time::Stopwatch;
@@ -9,7 +8,7 @@ use bevy::window::WindowResized;
 pub struct MenuPlugin;
 
 #[derive(Component)]
-struct OnMenuScreen;
+struct OnMainMenuScreen;
 
 // State used for the current menu screen
 #[derive(Clone, Copy, Default, Eq, PartialEq, Debug, Hash, States)]
@@ -33,19 +32,27 @@ impl Plugin for MenuPlugin {
                 ..Default::default()
             })
             .add_state::<MenuState>()
-            .add_systems(OnEnter(GameState::Menu), (setup_menu, setup_camera))
+            .add_systems(OnEnter(GameState::Menu), (setup_menu_state, setup_camera))
             .add_systems(OnEnter(MenuState::Main), setup_main_menu)
-            .add_systems(OnExit(MenuState::Main), despawn_screen::<OnMenuScreen>)
+            .add_systems(OnExit(MenuState::Main), despawn_screen::<OnMainMenuScreen>)
             .add_systems(
                 Update,
                 (
                     on_resize, //.run_if(in_state(GameState::Menu)),
                     handle_button.run_if(in_state(GameState::Menu)),
                     esc_to_quit.run_if(in_state(MenuState::Main)),
-                    clean_and_exit.run_if(in_state(MenuState::Exit)),
+                    // clean_and_exit.run_if(in_state(MenuState::Exit)),
                 ),
+            )
+            .add_systems(
+                OnEnter(MenuState::Exit),
+                exit_game_system.after(despawn_screen::<OnMainMenuScreen>),
             );
     }
+}
+
+fn setup_menu_state(mut menu_state: ResMut<NextState<MenuState>>) {
+    menu_state.set(MenuState::Main);
 }
 
 fn setup_camera(mut commands: Commands) {
@@ -59,17 +66,13 @@ fn setup_camera(mut commands: Commands) {
     camera_bundle.camera_2d.clear_color =
         bevy::core_pipeline::clear_color::ClearColorConfig::Custom(Color::rgb(0.05, 0.05, 0.05));
 
-    commands.spawn(camera_bundle).insert(OnMenuScreen);
-}
-
-fn setup_menu(mut menu_state: ResMut<NextState<MenuState>>) {
-    menu_state.set(MenuState::Main);
+    commands.spawn(camera_bundle).insert(OnMainMenuScreen);
 }
 
 #[derive(Component, Clone, Copy)]
-struct ButtonColors {
-    normal: Color,
-    hovered: Color,
+pub struct ButtonColors {
+    pub normal: Color,
+    pub hovered: Color,
 }
 
 impl Default for ButtonColors {
@@ -96,7 +99,7 @@ fn setup_main_menu(mut commands: Commands, textures: Res<TextureAssets>) {
                 // background_color: BackgroundColor(Color::RED),
                 ..Default::default()
             },
-            OnMenuScreen,
+            OnMainMenuScreen,
         ))
         .with_children(|children| {
             children.spawn(
@@ -142,11 +145,11 @@ fn setup_main_menu(mut commands: Commands, textures: Res<TextureAssets>) {
                 // }),
                 ..Default::default()
             },
-            OnMenuScreen,
+            OnMainMenuScreen,
         ))
         .with_children(|children| {
             let button_style = Style {
-                width: Val::Px(215.0),
+                width: Val::Px(300.0),
                 // height: Val::Px(50.0),
                 justify_content: JustifyContent::Center,
                 align_items: AlignItems::Center,
@@ -178,7 +181,7 @@ fn setup_main_menu(mut commands: Commands, textures: Res<TextureAssets>) {
 
             menu_button(
                 children,
-                "Play",
+                "New Game",
                 MenuButtonAction::Play,
                 &button_style,
                 &ButtonColors {
@@ -200,7 +203,7 @@ fn setup_main_menu(mut commands: Commands, textures: Res<TextureAssets>) {
             menu_button(
                 children,
                 "Quit",
-                MenuButtonAction::Quit,
+                MenuButtonAction::Quit(false),
                 &button_style,
                 &ButtonColors {
                     hovered: Color::rgb(0.5, 0.2, 0.2),
@@ -224,7 +227,7 @@ fn setup_main_menu(mut commands: Commands, textures: Res<TextureAssets>) {
                 },
                 ..Default::default()
             },
-            OnMenuScreen,
+            OnMainMenuScreen,
         ))
         .with_children(|children| {
             children
@@ -266,50 +269,10 @@ fn setup_main_menu(mut commands: Commands, textures: Res<TextureAssets>) {
                         ..Default::default()
                     });
                 });
-
-            // children
-            //     .spawn((
-            //         ButtonBundle {
-            //             style: Style {
-            //                 width: Val::Auto,
-            //                 height: Val::Vh(8.),
-            //                 justify_content: JustifyContent::SpaceAround,
-            //                 align_items: AlignItems::Center,
-            //                 column_gap: Val::Px(10.),
-            //                 padding: UiRect::all(Val::VMin(2.)),
-            //                 ..Default::default()
-            //             },
-            //             background_color: Color::NONE.into(),
-            //             ..Default::default()
-            //         },
-            //         ButtonColors {
-            //             normal: Color::NONE,
-            //             hovered: Color::rgb(0.25, 0.25, 0.25),
-            //         },
-            //         OpenLink("https://github.com/NiklasEi/bevy_game_template"),
-            //     ))
-            //     .with_children(|children| {
-            //         children.spawn(TextBundle::from_section(
-            //             "Open source",
-            //             TextStyle {
-            //                 font_size: 25.0,
-            //                 color: Color::rgb(0.9, 0.9, 0.9),
-            //                 ..Default::default()
-            //             },
-            //         ));
-            //         children.spawn(ImageBundle {
-            //             image: textures.github.clone().into(),
-            //             style: Style {
-            //                 height: Val::VMin(6.),
-            //                 ..Default::default()
-            //             },
-            //             ..Default::default()
-            //         });
-            //     });
         });
 
     // Stopwatch and exit with esc msg
-    commands.spawn((QuitEscTime::new(), OnMenuScreen));
+    commands.spawn((QuitEscTime::new(), OnMainMenuScreen));
     commands
         .spawn((
             NodeBundle {
@@ -335,36 +298,24 @@ fn setup_main_menu(mut commands: Commands, textures: Res<TextureAssets>) {
                 ..Default::default()
             },
             Popup,
-            OnMenuScreen,
+            OnMainMenuScreen,
         ))
         .with_children(|children| {
-            children.spawn(
-                TextBundle::from_section(
-                    "ESC again to exit game",
-                    TextStyle {
-                        font_size: 40.,
-                        color: Color::rgb(0.9, 0.9, 0.9),
-                        ..Default::default()
-                    },
-                ), // .with_text_alignment(TextAlignment::Center)
-                   // .with_style(Style {
-                   //     // justify_self: JustifySelf::Baseline,
-                   //     margin: UiRect {
-                   //         // top: Val::Vh(15.),
-                   //         // bottom: Val::Vh(15.),
-                   //         // right: Val::Percent(10.),
-                   //         ..Default::default()
-                   //     },
-                   //     ..Default::default()
-                   // })
-            );
+            children.spawn(TextBundle::from_section(
+                "ESC again to exit game",
+                TextStyle {
+                    font_size: 40.,
+                    color: Color::rgb(0.9, 0.9, 0.9),
+                    ..Default::default()
+                },
+            ));
         });
 }
 
-fn menu_button(
+pub fn menu_button<T: Component>(
     children: &mut ChildBuilder<'_, '_, '_>,
     text: &str,
-    action: MenuButtonAction,
+    action: T,
     button_style: &Style,
     button_colors: &ButtonColors,
     button_text_style: &TextStyle,
@@ -380,7 +331,10 @@ fn menu_button(
             action,
         ))
         .with_children(|children| {
-            children.spawn(TextBundle::from_section(text, button_text_style.clone()));
+            children.spawn(
+                TextBundle::from_section(text, button_text_style.clone())
+                    .with_text_alignment(TextAlignment::Center),
+            );
         });
 }
 
@@ -389,7 +343,7 @@ enum MenuButtonAction {
     Continue,
     Play,
     Settings,
-    Quit,
+    Quit(bool),
 }
 
 #[derive(Component)]
@@ -402,19 +356,19 @@ fn handle_button(
         (
             &Interaction,
             &mut BackgroundColor,
-            &ButtonColors,
-            Option<&MenuButtonAction>,
+            &mut ButtonColors,
+            Option<&mut MenuButtonAction>,
             Option<&OpenLink>,
         ),
         (Changed<Interaction>, With<Button>),
     >,
 ) {
-    for (interaction, mut color, button_colors, menu_button_action, open_link) in
+    for (interaction, mut color, mut button_colors, menu_button_action, open_link) in
         &mut interaction_query
     {
         match *interaction {
             Interaction::Pressed => {
-                if let Some(action) = menu_button_action {
+                if let Some(mut action) = menu_button_action {
                     match *action {
                         MenuButtonAction::Continue => {}
                         MenuButtonAction::Play => {
@@ -422,8 +376,14 @@ fn handle_button(
                             menu_state.set(MenuState::Disabled);
                         }
                         MenuButtonAction::Settings => {}
-                        MenuButtonAction::Quit => {
-                            menu_state.set(MenuState::Exit);
+                        MenuButtonAction::Quit(confirm) => {
+                            if !confirm {
+                                button_colors.normal = Color::rgb(0.5, 0.2, 0.2);
+                                button_colors.hovered = Color::rgb(0.8, 0.2, 0.2);
+                                *action = MenuButtonAction::Quit(true);
+                            } else {
+                                menu_state.set(MenuState::Exit);
+                            }
                         }
                     }
                 } else if let Some(link) = open_link {
@@ -484,12 +444,6 @@ fn esc_to_quit(
 
 #[derive(Component)]
 struct Popup;
-
-fn clean_and_exit(mut app_exit_events: EventWriter<AppExit>) {
-    // Auto clean because of menu state to Exit
-    // Exit event
-    app_exit_events.send(AppExit);
-}
 
 fn on_resize(mut resize_reader: EventReader<WindowResized>, mut ui_scale: ResMut<UiScale>) {
     // // Window size

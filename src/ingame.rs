@@ -1,5 +1,6 @@
 use crate::loading::TextureAssets;
-use crate::{despawn_screen, GameState};
+use crate::menu::{menu_button, ButtonColors};
+use crate::{despawn_screen, remove_value_from_vec, GameState};
 use bevy::prelude::*;
 use bevy::sprite::collide_aabb::collide;
 use bevy::window::PrimaryWindow;
@@ -10,6 +11,18 @@ const CAMERA_SPEED: f32 = 650.;
 
 #[derive(Component)]
 pub struct OnIngameScreen;
+
+#[derive(Component)]
+struct OnPauseUI;
+
+#[derive(Clone, Copy, Default, Eq, PartialEq, Debug, Hash, States)]
+enum IngameState {
+    Running,
+    Paused,
+    ToMenu,
+    #[default]
+    Diabled,
+}
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 enum InteractibleAction {
@@ -34,15 +47,23 @@ struct IgnoredInteractibleActions(Vec<InteractibleAction>);
 impl Plugin for IngamePlugin {
     fn build(&self, app: &mut App) {
         app //
-            .add_systems(OnEnter(GameState::Playing), (setup_camera, setup_ingame))
+            .add_state::<IngameState>()
+            .add_systems(OnEnter(GameState::Playing), (setup_ingame, setup_camera))
+            // IngameState::Running
             .add_systems(
                 Update,
                 (
                     esc_to_pause.run_if(in_state(GameState::Playing)),
-                    interactibles_system.run_if(in_state(GameState::Playing)),
-                    move_camera_system.run_if(in_state(GameState::Playing)),
+                    interactibles_system.run_if(in_state(IngameState::Running)),
+                    move_camera_system.run_if(in_state(IngameState::Running)),
                 ),
             )
+            // IngameState::Paused
+            .add_systems(OnEnter(IngameState::Paused), setup_pause_menu)
+            .add_systems(Update, handle_button.run_if(in_state(IngameState::Paused)))
+            .add_systems(OnExit(IngameState::Paused), despawn_screen::<OnPauseMenu>)
+            // To Main Menu
+            .add_systems(OnEnter(IngameState::ToMenu), go_to_menu)
             .add_systems(OnExit(GameState::Playing), despawn_screen::<OnIngameScreen>);
     }
 }
@@ -59,7 +80,7 @@ fn setup_camera(mut commands: Commands) {
     commands
         .spawn(SpriteBundle {
             transform: Transform {
-                translation: Vec3::new(0., -1080., 666.),
+                translation: Vec3::new(0., -1080., 999.),
                 scale: Vec3::new(1920., 1080., 0.0),
                 ..Default::default()
             },
@@ -75,7 +96,7 @@ fn setup_camera(mut commands: Commands) {
     commands
         .spawn(SpriteBundle {
             transform: Transform {
-                translation: Vec3::new(0., 1080., 666.),
+                translation: Vec3::new(0., 1080., 999.),
                 scale: Vec3::new(1920., 1080., 0.0),
                 ..Default::default()
             },
@@ -91,7 +112,7 @@ fn setup_camera(mut commands: Commands) {
     commands
         .spawn(SpriteBundle {
             transform: Transform {
-                translation: Vec3::new(-1920., 0., 666.),
+                translation: Vec3::new(-1920., 0., 999.),
                 scale: Vec3::new(1920., 1080., 0.0),
                 ..Default::default()
             },
@@ -107,7 +128,7 @@ fn setup_camera(mut commands: Commands) {
     commands
         .spawn(SpriteBundle {
             transform: Transform {
-                translation: Vec3::new(1920., 0., 666.),
+                translation: Vec3::new(1920., 0., 999.),
                 scale: Vec3::new(1920., 1080., 0.0),
                 ..Default::default()
             },
@@ -140,7 +161,11 @@ fn setup_camera(mut commands: Commands) {
 #[derive(Component)]
 struct CameraBound(Vec2);
 
-fn setup_ingame(mut commands: Commands, textures: Res<TextureAssets>) {
+fn setup_ingame(
+    mut commands: Commands,
+    textures: Res<TextureAssets>,
+    mut ingame_state: ResMut<NextState<IngameState>>,
+) {
     // ActiveInteractibleActions
     commands
         .spawn(ActiveInteractibleActions(vec![
@@ -231,6 +256,9 @@ fn setup_ingame(mut commands: Commands, textures: Res<TextureAssets>) {
         .insert(Interactible {
             action: InteractibleAction::BeerBarrel,
         });
+
+    // Set game state to Running to start systems
+    ingame_state.set(IngameState::Running)
 }
 
 fn move_camera_system(
@@ -248,7 +276,7 @@ fn move_camera_system(
     if let Some(target_pos) = move_camera_to.0 {
         let target = target_pos.extend(0.);
         let current_position = camera_transform.translation;
-        if current_position.distance(target) > 5. {
+        if current_position.distance(target) > 10. {
             camera_transform.translation += (target - current_position).normalize_or_zero()
                 * CAMERA_SPEED
                 * time.delta_seconds();
@@ -262,7 +290,7 @@ fn move_camera_system(
     // Adjust CameraBounds
     for (mut bound_transform, bound) in bounds_q.iter_mut() {
         bound_transform.translation =
-            (bound.0 + camera_transform.translation.truncate()).extend(666.);
+            (bound.0 + camera_transform.translation.truncate()).extend(999.);
     }
 }
 
@@ -391,18 +419,208 @@ fn handle_interactible_click(
     }
 }
 
-// ToDo change from go to main menu to pause state ingame (create IngameState too)
-fn esc_to_pause(mut keys: ResMut<Input<KeyCode>>, mut game_state: ResMut<NextState<GameState>>) {
+#[derive(Component)]
+struct OnPauseMenu;
+
+#[derive(Component)]
+enum PauseButtonAction {
+    Resume,
+    Settings,
+    MainMenu(bool),
+}
+
+fn setup_pause_menu(mut commands: Commands, camera_q: Query<&Transform, With<MainCamera>>) {
+    let camera_transform = camera_q.single();
+    // Transparent Pause background
+    commands
+        .spawn(SpriteBundle {
+            transform: Transform {
+                translation: camera_transform.translation.xy().extend(111.),
+                scale: Vec3::new(1920., 1080., 0.0),
+                ..Default::default()
+            },
+            sprite: Sprite {
+                color: Color::Rgba {
+                    red: 0.,
+                    green: 0.,
+                    blue: 0.,
+                    alpha: 0.95,
+                },
+                ..Default::default()
+            },
+            ..Default::default()
+        })
+        .insert(OnPauseMenu);
+
+    commands
+        .spawn((
+            NodeBundle {
+                style: Style {
+                    width: Val::Percent(100.0),
+                    height: Val::Percent(25.0),
+                    flex_direction: FlexDirection::Column,
+                    align_items: AlignItems::Center,
+                    justify_content: JustifyContent::FlexEnd,
+                    ..Default::default()
+                },
+                // background_color: BackgroundColor(Color::RED),
+                ..Default::default()
+            },
+            OnPauseMenu,
+        ))
+        .with_children(|children| {
+            children.spawn(
+                TextBundle::from_section(
+                    "Tavern",
+                    TextStyle {
+                        font_size: 120.,
+                        color: Color::rgb(0.9, 0.9, 0.9),
+                        ..Default::default()
+                    },
+                ), // .with_text_alignment(TextAlignment::Center)
+                   // .with_style(Style {
+                   //     // justify_self: JustifySelf::Baseline,
+                   //     margin: UiRect {
+                   //         // top: Val::Vh(15.),
+                   //         // bottom: Val::Vh(15.),
+                   //         ..Default::default()
+                   //     },
+                   //     ..Default::default()
+                   // })
+            );
+        });
+
+    commands
+        .spawn((
+            NodeBundle {
+                style: Style {
+                    width: Val::Percent(100.0),
+                    height: Val::Percent(65.0),
+                    flex_direction: FlexDirection::Column,
+                    align_items: AlignItems::Center,
+                    justify_content: JustifyContent::Center,
+                    align_self: AlignSelf::End,
+                    margin: UiRect::bottom(Val::Vh(10.)),
+                    padding: UiRect::vertical(Val::Vh(10.)),
+                    ..Default::default()
+                },
+                // background_color: BackgroundColor(Color::Rgba {
+                //     red: 0.5,
+                //     green: 0.5,
+                //     blue: 0.5,
+                //     alpha: 0.5,
+                // }),
+                ..Default::default()
+            },
+            OnPauseMenu,
+        ))
+        .with_children(|children| {
+            let button_style = Style {
+                width: Val::Px(300.0),
+                // height: Val::Px(50.0),
+                justify_content: JustifyContent::Center,
+                align_items: AlignItems::Center,
+                margin: UiRect::bottom(Val::Px(25.)),
+                padding: UiRect::axes(Val::Px(15.), Val::Px(10.)),
+                ..Default::default()
+            };
+            let button_text_style = TextStyle {
+                font_size: 50.0,
+                color: Color::rgb(0.9, 0.9, 0.9),
+                ..Default::default()
+            };
+
+            menu_button(
+                children,
+                "Resume",
+                PauseButtonAction::Resume,
+                &button_style,
+                &ButtonColors {
+                    hovered: Color::rgb(0.3, 0.4, 0.4),
+                    ..Default::default()
+                },
+                &button_text_style,
+            );
+
+            menu_button(
+                children,
+                "Settings",
+                PauseButtonAction::Settings,
+                &button_style,
+                &ButtonColors::default(),
+                &button_text_style,
+            );
+
+            menu_button(
+                children,
+                "Main Menu",
+                PauseButtonAction::MainMenu(false),
+                &button_style,
+                &ButtonColors {
+                    hovered: Color::rgb(0.5, 0.2, 0.2),
+                    ..Default::default()
+                },
+                &button_text_style,
+            );
+        });
+}
+
+fn handle_button(
+    mut ingame_state: ResMut<NextState<IngameState>>,
+    mut interaction_query: Query<
+        (
+            &Interaction,
+            &mut BackgroundColor,
+            &mut ButtonColors,
+            Option<&mut PauseButtonAction>,
+        ),
+        (Changed<Interaction>, With<Button>),
+    >,
+) {
+    for (interaction, mut color, mut button_colors, pause_button_action) in &mut interaction_query {
+        match *interaction {
+            Interaction::Pressed => {
+                if let Some(mut action) = pause_button_action {
+                    match *action {
+                        PauseButtonAction::Resume => ingame_state.set(IngameState::Running),
+                        PauseButtonAction::Settings => {}
+                        PauseButtonAction::MainMenu(confirm) => {
+                            if !confirm {
+                                button_colors.normal = Color::rgb(0.5, 0.2, 0.2);
+                                button_colors.hovered = Color::rgb(0.8, 0.2, 0.2);
+                                *action = PauseButtonAction::MainMenu(true);
+                            } else {
+                                ingame_state.set(IngameState::ToMenu)
+                            }
+                        }
+                    }
+                }
+            }
+            Interaction::Hovered => {
+                *color = button_colors.hovered.into();
+            }
+            Interaction::None => {
+                *color = button_colors.normal.into();
+            }
+        }
+    }
+}
+
+fn esc_to_pause(
+    mut keys: ResMut<Input<KeyCode>>,
+    ingame_state: Res<State<IngameState>>,
+    mut ingame_next_state: ResMut<NextState<IngameState>>,
+) {
     if keys.just_pressed(KeyCode::Escape) {
-        game_state.set(GameState::Menu);
+        match *ingame_state.get() {
+            IngameState::Running => ingame_next_state.set(IngameState::Paused),
+            IngameState::Paused => ingame_next_state.set(IngameState::Running),
+            _ => {}
+        }
         keys.reset(KeyCode::Escape);
     }
 }
 
-fn remove_value_from_vec<T: PartialEq>(value_to_remove: T, vec: &mut Vec<T>) {
-    vec.swap_remove(
-        vec.iter()
-            .position(|x| *x == value_to_remove)
-            .expect("InteractibleAction to remove is not active."),
-    );
+fn go_to_menu(mut game_next_state: ResMut<NextState<GameState>>) {
+    game_next_state.set(GameState::Menu);
 }

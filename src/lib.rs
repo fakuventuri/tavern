@@ -9,13 +9,13 @@ mod menu;
 #[allow(dead_code, unused)]
 mod player;
 
-use crate::actions::ActionsPlugin;
+// use crate::actions::ActionsPlugin;
 use crate::audio::InternalAudioPlugin;
 use crate::ingame::IngamePlugin;
 use crate::loading::LoadingPlugin;
 use crate::menu::MenuPlugin;
 
-use bevy::app::App;
+use bevy::app::{App, AppExit};
 #[cfg(debug_assertions)]
 use bevy::diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin};
 use bevy::prelude::*;
@@ -38,13 +38,16 @@ pub struct GamePlugin;
 
 impl Plugin for GamePlugin {
     fn build(&self, app: &mut App) {
-        app.add_state::<GameState>().add_plugins((
-            LoadingPlugin,
-            MenuPlugin,
-            ActionsPlugin,
-            InternalAudioPlugin,
-            IngamePlugin,
-        ));
+        app //
+            .add_state::<GameState>()
+            .add_plugins((
+                LoadingPlugin,
+                MenuPlugin,
+                // ActionsPlugin,
+                InternalAudioPlugin,
+                IngamePlugin,
+            ))
+            .add_systems(Update, set_fullscreen);
 
         #[cfg(debug_assertions)]
         {
@@ -53,9 +56,40 @@ impl Plugin for GamePlugin {
     }
 }
 
+fn set_fullscreen(keyboard_input: Res<Input<KeyCode>>, mut windows: Query<&mut Window>) {
+    if keyboard_input.pressed(KeyCode::AltLeft)
+        && (keyboard_input.just_pressed(KeyCode::Return) || keyboard_input.just_pressed(KeyCode::F))
+    {
+        // keyboard_input.reset(KeyCode::Return);
+        let mut window = windows.single_mut();
+        match window.mode {
+            bevy::window::WindowMode::Windowed => {
+                window.mode = bevy::window::WindowMode::BorderlessFullscreen
+            }
+            bevy::window::WindowMode::BorderlessFullscreen => {
+                window.mode = bevy::window::WindowMode::Windowed
+            }
+            _ => {}
+        }
+    }
+}
+
+pub fn exit_game_system(mut app_exit_events: EventWriter<AppExit>) {
+    // Exit event
+    app_exit_events.send(AppExit);
+}
+
 // Generic system that takes a component as a parameter, and will despawn all entities with that component
 fn despawn_screen<T: Component>(to_despawn: Query<Entity, With<T>>, mut commands: Commands) {
     for entity in &to_despawn {
         commands.entity(entity).despawn_recursive();
     }
+}
+
+pub fn remove_value_from_vec<T: PartialEq>(value_to_remove: T, vec: &mut Vec<T>) {
+    vec.swap_remove(
+        vec.iter()
+            .position(|x| *x == value_to_remove)
+            .expect("InteractibleAction to remove is not active."),
+    );
 }
