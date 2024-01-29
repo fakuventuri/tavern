@@ -1,13 +1,13 @@
 #![allow(clippy::type_complexity)]
 
-mod actions;
+// mod actions;
 #[allow(dead_code, unused)]
 mod audio;
 mod ingame;
 mod loading;
 mod menu;
-#[allow(dead_code, unused)]
-mod player;
+// #[allow(dead_code, unused)]
+// mod player;
 
 // use crate::actions::ActionsPlugin;
 use crate::audio::InternalAudioPlugin;
