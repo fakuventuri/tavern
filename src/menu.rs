@@ -145,15 +145,6 @@ fn setup_main_menu(mut commands: Commands, textures: Res<TextureAssets>) {
             OnMenuScreen,
         ))
         .with_children(|children| {
-            let default_button_colors = ButtonColors::default();
-            let play_button_colors = ButtonColors {
-                hovered: Color::rgb(0.3, 0.4, 0.4),
-                ..Default::default()
-            };
-            let exit_button_colors = ButtonColors {
-                hovered: Color::rgb(0.5, 0.2, 0.2),
-                ..Default::default()
-            };
             let button_style = Style {
                 width: Val::Px(215.0),
                 // height: Val::Px(50.0),
@@ -169,50 +160,54 @@ fn setup_main_menu(mut commands: Commands, textures: Res<TextureAssets>) {
                 ..Default::default()
             };
 
-            children
-                .spawn((
-                    ButtonBundle {
-                        style: button_style.clone(),
-                        background_color: play_button_colors.normal.into(),
-                        ..Default::default()
-                    },
-                    play_button_colors,
-                    MenuButtonAction::Play,
-                ))
-                .with_children(|children| {
-                    children.spawn(TextBundle::from_section("Play", button_text_style.clone()));
-                });
+            menu_button(
+                children,
+                "Continue",
+                MenuButtonAction::Continue,
+                &button_style,
+                &ButtonColors {
+                    hovered: Color::rgb(0.4, 0.4, 0.4),
+                    normal: Color::rgb(0.4, 0.4, 0.4),
+                },
+                &TextStyle {
+                    font_size: 50.0,
+                    color: Color::rgb(0.6, 0.6, 0.6),
+                    ..Default::default()
+                },
+            );
 
-            children
-                .spawn((
-                    ButtonBundle {
-                        style: button_style.clone(),
-                        background_color: default_button_colors.normal.into(),
-                        ..Default::default()
-                    },
-                    default_button_colors,
-                    MenuButtonAction::Settings,
-                ))
-                .with_children(|children| {
-                    children.spawn(TextBundle::from_section(
-                        "Settings",
-                        button_text_style.clone(),
-                    ));
-                });
+            menu_button(
+                children,
+                "Play",
+                MenuButtonAction::Play,
+                &button_style,
+                &ButtonColors {
+                    hovered: Color::rgb(0.3, 0.4, 0.4),
+                    ..Default::default()
+                },
+                &button_text_style,
+            );
 
-            children
-                .spawn((
-                    ButtonBundle {
-                        style: button_style.clone(),
-                        background_color: exit_button_colors.normal.into(),
-                        ..Default::default()
-                    },
-                    exit_button_colors,
-                    MenuButtonAction::Quit,
-                ))
-                .with_children(|children| {
-                    children.spawn(TextBundle::from_section("Quit", button_text_style.clone()));
-                });
+            menu_button(
+                children,
+                "Settings",
+                MenuButtonAction::Settings,
+                &button_style,
+                &ButtonColors::default(),
+                &button_text_style,
+            );
+
+            menu_button(
+                children,
+                "Quit",
+                MenuButtonAction::Quit,
+                &button_style,
+                &ButtonColors {
+                    hovered: Color::rgb(0.5, 0.2, 0.2),
+                    ..Default::default()
+                },
+                &button_text_style,
+            );
         });
 
     commands
@@ -366,8 +361,32 @@ fn setup_main_menu(mut commands: Commands, textures: Res<TextureAssets>) {
         });
 }
 
+fn menu_button(
+    children: &mut ChildBuilder<'_, '_, '_>,
+    text: &str,
+    action: MenuButtonAction,
+    button_style: &Style,
+    button_colors: &ButtonColors,
+    button_text_style: &TextStyle,
+) {
+    children
+        .spawn((
+            ButtonBundle {
+                style: button_style.clone(),
+                background_color: button_colors.normal.into(),
+                ..Default::default()
+            },
+            *button_colors,
+            action,
+        ))
+        .with_children(|children| {
+            children.spawn(TextBundle::from_section(text, button_text_style.clone()));
+        });
+}
+
 #[derive(Component)]
 enum MenuButtonAction {
+    Continue,
     Play,
     Settings,
     Quit,
@@ -397,6 +416,7 @@ fn handle_button(
             Interaction::Pressed => {
                 if let Some(action) = menu_button_action {
                     match *action {
+                        MenuButtonAction::Continue => {}
                         MenuButtonAction::Play => {
                             game_state.set(GameState::Playing);
                             menu_state.set(MenuState::Disabled);
