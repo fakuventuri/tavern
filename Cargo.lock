@@ -2039,6 +2039,7 @@ dependencies = [
  "bytemuck",
  "byteorder",
  "color_quant",
+ "jpeg-decoder",
  "num-rational",
  "num-traits",
  "png",
@@ -2176,6 +2177,12 @@ checksum = "8c37f63953c4c63420ed5fd3d6d398c719489b9f872b9fa683262f8edd363c7d"
 dependencies = [
  "libc",
 ]
+
+[[package]]
+name = "jpeg-decoder"
+version = "0.3.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f5d4a7da358eff58addd2877a45865158f0d78c911d43a5784ceb7bbf52833b0"
 
 [[package]]
 name = "js-sys"
@@ -2379,7 +2386,7 @@ dependencies = [
 
 [[package]]
 name = "mobile"
-version = "0.2.2"
+version = "0.4.4"
 dependencies = [
  "bevy",
  "cpal",
@@ -3290,7 +3297,7 @@ dependencies = [
 
 [[package]]
 name = "tavern"
-version = "0.2.2"
+version = "0.4.4"
 dependencies = [
  "bevy",
  "bevy_asset_loader",
