@@ -35,8 +35,8 @@ pub struct TextureAssets {
     pub bevy: Handle<Image>,
     #[asset(path = "textures/backgrounds/tavern_bg.jpg")]
     pub tavern_bg: Handle<Image>,
-    #[asset(path = "textures/counter.png")]
-    pub counter: Handle<Image>,
+    #[asset(path = "textures/bar.png")]
+    pub bar: Handle<Image>,
     #[asset(path = "textures/barrel.png")]
     pub barrel: Handle<Image>,
 }

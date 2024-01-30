@@ -1,12 +1,16 @@
+mod bar;
+mod customer;
 use crate::loading::TextureAssets;
 use crate::menu::settings::{
     setting_button_handle, settings_button_colors, settings_pause_setup, OnSettingsMenuScreen,
 };
 use crate::menu::{menu_button, ButtonColors};
-use crate::{despawn_screen, remove_value_from_vec, GameState, ScreenMode};
+use crate::{despawn_screen, remove_value_from_vec, GameState, ScreenMode, TEXT_COLOR};
 use bevy::prelude::*;
 use bevy::sprite::collide_aabb::collide;
 use bevy::window::PrimaryWindow;
+
+use self::bar::{BarPlugin, Drink};
 
 pub struct IngamePlugin;
 
@@ -30,10 +34,18 @@ pub enum IngameState {
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 enum InteractibleAction {
-    SeeBar,
+    EnterBar,
     ExitBar,
-    BeerBarrel,
+    Barrel(Drink),
     _None,
+}
+
+impl InteractibleAction {
+    fn get_barrels() -> Vec<InteractibleAction> {
+        Drink::iterator()
+            .map(|(drink, _)| InteractibleAction::Barrel(drink))
+            .collect()
+    }
 }
 
 #[derive(Component, Debug)]
@@ -52,6 +64,7 @@ impl Plugin for IngamePlugin {
     fn build(&self, app: &mut App) {
         app //
             .add_state::<IngameState>()
+            .add_plugins(BarPlugin)
             .add_systems(OnEnter(GameState::Playing), (setup_ingame, setup_camera))
             // IngameState::Running
             .add_systems(
@@ -93,7 +106,8 @@ pub struct MainCameraIngame;
 struct MoveCameraTo(Option<Vec2>);
 
 fn setup_camera(mut commands: Commands) {
-    // CameraBounds Black Sprite out of screen to hide sprites out of view in weird resolutions. // ToDo look for a better solution
+    // CameraBounds Black Sprites out of screen to hide sprites out of window in weird resolutions.
+    // ToDo look for a better solution
     // Bottom of the Screen
     commands
         .spawn(SpriteBundle {
@@ -185,17 +199,16 @@ fn setup_ingame(
     mut ingame_state: ResMut<NextState<IngameState>>,
 ) {
     // ActiveInteractibleActions
+    let mut initial_active_interactibles = vec![InteractibleAction::EnterBar];
+    initial_active_interactibles.append(&mut InteractibleAction::get_barrels());
     commands
-        .spawn(ActiveInteractibleActions(vec![
-            InteractibleAction::SeeBar,
-            InteractibleAction::BeerBarrel,
-        ]))
+        .spawn(ActiveInteractibleActions(initial_active_interactibles))
         .insert(OnIngameScreen);
     // IgnoredInteractibleActions
+    let mut initial_ignored_interactibles = vec![];
+    initial_ignored_interactibles.append(&mut InteractibleAction::get_barrels());
     commands
-        .spawn(IgnoredInteractibleActions(vec![
-            InteractibleAction::BeerBarrel,
-        ]))
+        .spawn(IgnoredInteractibleActions(initial_ignored_interactibles))
         .insert(OnIngameScreen);
     // Background
     commands
@@ -211,68 +224,6 @@ fn setup_ingame(
         .insert(OnIngameScreen)
         .insert(Interactible {
             action: InteractibleAction::ExitBar,
-        });
-
-    // Counter
-    commands
-        .spawn(SpriteBundle {
-            texture: textures.counter.clone(),
-            transform: Transform {
-                translation: Vec3::new(0., -600., 0.), // y: -540.
-                scale: Vec3::new(1.5, 1.5, 0.0),
-                ..Default::default()
-            },
-            ..Default::default()
-        })
-        .insert(OnIngameScreen)
-        .insert(Interactible {
-            action: InteractibleAction::SeeBar,
-        });
-
-    // BeerBarrels
-    commands
-        .spawn(SpriteBundle {
-            texture: textures.barrel.clone(),
-            transform: Transform {
-                translation: Vec3::new(750., -615., 4.),
-                scale: Vec3::new(1.5, 1.5, 0.0),
-                ..Default::default()
-            },
-            ..Default::default()
-        })
-        .insert(OnIngameScreen)
-        .insert(Interactible {
-            action: InteractibleAction::BeerBarrel,
-        });
-
-    commands
-        .spawn(SpriteBundle {
-            texture: textures.barrel.clone(),
-            transform: Transform {
-                translation: Vec3::new(400., -615., 3.),
-                scale: Vec3::new(1.5, 1.5, 0.0),
-                ..Default::default()
-            },
-            ..Default::default()
-        })
-        .insert(OnIngameScreen)
-        .insert(Interactible {
-            action: InteractibleAction::BeerBarrel,
-        });
-
-    commands
-        .spawn(SpriteBundle {
-            texture: textures.barrel.clone(),
-            transform: Transform {
-                translation: Vec3::new(50., -615., 2.),
-                scale: Vec3::new(1.5, 1.5, 0.0),
-                ..Default::default()
-            },
-            ..Default::default()
-        })
-        .insert(OnIngameScreen)
-        .insert(Interactible {
-            action: InteractibleAction::BeerBarrel,
         });
 
     // Set game state to Running to start systems
@@ -318,7 +269,7 @@ fn interactibles_system(
         (&Camera, &GlobalTransform, &mut MoveCameraTo),
         (With<MainCameraIngame>, Without<Interactible>),
     >,
-    mut interactibles_q: Query<(&mut Interactible, &Transform, &Handle<Image>, &mut Sprite)>,
+    mut interactibles_q: Query<(&Transform, &mut Interactible, &Handle<Image>, &mut Sprite)>,
     mut active_interactibles_q: Query<&mut ActiveInteractibleActions>,
     mut ignored_interactibles_q: Query<&mut IgnoredInteractibleActions>,
     assets: Res<Assets<Image>>,
@@ -338,13 +289,13 @@ fn interactibles_system(
         let mut ignored_interactibles = ignored_interactibles_q.single_mut();
         // Sort interactibles by Z index to interact only with the higher one
         let mut interactibles = interactibles_q.iter_mut().collect::<Vec<_>>();
-        interactibles.sort_by(|a, b| b.1.translation.z.total_cmp(&a.1.translation.z));
+        interactibles.sort_by(|a, b| b.0.translation.z.total_cmp(&a.0.translation.z));
 
         let mut found_collision = false;
 
         for (
-            mut interactible,
             interactible_transform,
+            mut interactible,
             interactible_image_handle,
             mut interactible_sprite,
         ) in interactibles
@@ -396,8 +347,8 @@ fn interactibles_system(
     } else {
         // Cursor is not in the game window.
         for (
-            _interactible,
             _interactible_transform,
+            _interactible,
             _interactible_image_handle,
             mut interactible_sprite,
         ) in interactibles_q.iter_mut()
@@ -414,12 +365,14 @@ fn handle_interactible_click(
     ignored_interactibles: &mut IgnoredInteractibleActions,
 ) {
     match interactible.action {
-        InteractibleAction::SeeBar => {
+        InteractibleAction::EnterBar => {
             move_camera_to.0 = Some(Vec2::new(0., -275.));
             // Deactivate SeeBar
-            remove_value_from_vec(InteractibleAction::SeeBar, &mut active_interactibles.0);
-            // Stop ignoring BeerBarrel
-            remove_value_from_vec(InteractibleAction::BeerBarrel, &mut ignored_interactibles.0);
+            remove_value_from_vec(InteractibleAction::EnterBar, &mut active_interactibles.0);
+            // Stop ignoring Barrels
+            InteractibleAction::get_barrels()
+                .iter()
+                .for_each(|barrel| remove_value_from_vec(*barrel, &mut ignored_interactibles.0));
             // Activate ExitBar
             active_interactibles.0.push(InteractibleAction::ExitBar);
         }
@@ -427,12 +380,16 @@ fn handle_interactible_click(
             move_camera_to.0 = Some(Vec2::new(0., 0.));
             // Deactivate ExitBar
             remove_value_from_vec(InteractibleAction::ExitBar, &mut active_interactibles.0);
-            // Ignore BeerBarrel
-            ignored_interactibles.0.push(InteractibleAction::BeerBarrel);
+            // Ignore Barrels
+            InteractibleAction::get_barrels()
+                .iter()
+                .for_each(|barrel| ignored_interactibles.0.push(*barrel));
             // Activate SeeBar
-            active_interactibles.0.push(InteractibleAction::SeeBar);
+            active_interactibles.0.push(InteractibleAction::EnterBar);
         }
-        InteractibleAction::BeerBarrel => {}
+        InteractibleAction::Barrel(drink) => {
+            info!("Clicked: {:?}", drink);
+        }
         InteractibleAction::_None => {}
     }
 }
@@ -487,13 +444,13 @@ fn setup_pause_menu(mut commands: Commands, camera_q: Query<&Transform, With<Mai
             },
             OnPauseMenu,
         ))
-        .with_children(|parent| {
-            parent.spawn(
+        .with_children(|child_builder| {
+            child_builder.spawn(
                 TextBundle::from_section(
                     "Tavern",
                     TextStyle {
                         font_size: 120.,
-                        color: Color::rgb(0.9, 0.9, 0.9),
+                        color: TEXT_COLOR,
                         ..Default::default()
                     },
                 ), // .with_text_alignment(TextAlignment::Center)
@@ -533,7 +490,7 @@ fn setup_pause_menu(mut commands: Commands, camera_q: Query<&Transform, With<Mai
             },
             OnPauseMenu,
         ))
-        .with_children(|parent| {
+        .with_children(|child_builder| {
             let button_style = Style {
                 width: Val::Px(300.0),
                 // height: Val::Px(50.0),
@@ -545,12 +502,12 @@ fn setup_pause_menu(mut commands: Commands, camera_q: Query<&Transform, With<Mai
             };
             let button_text_style = TextStyle {
                 font_size: 50.0,
-                color: Color::rgb(0.9, 0.9, 0.9),
+                color: TEXT_COLOR,
                 ..Default::default()
             };
 
             menu_button(
-                parent,
+                child_builder,
                 "Resume",
                 PauseButtonAction::Resume,
                 &button_style,
@@ -562,7 +519,7 @@ fn setup_pause_menu(mut commands: Commands, camera_q: Query<&Transform, With<Mai
             );
 
             menu_button(
-                parent,
+                child_builder,
                 "Settings",
                 PauseButtonAction::Settings,
                 &button_style,
@@ -571,7 +528,7 @@ fn setup_pause_menu(mut commands: Commands, camera_q: Query<&Transform, With<Mai
             );
 
             menu_button(
-                parent,
+                child_builder,
                 "Main Menu",
                 PauseButtonAction::MainMenu(false),
                 &button_style,

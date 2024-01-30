@@ -2,7 +2,7 @@ use bevy::prelude::*;
 
 use crate::{
     ingame::{MainCameraIngame, PauseButtonAction},
-    ScreenMode,
+    ScreenMode, TEXT_COLOR,
 };
 
 use super::{menu_button, ButtonColors, MenuButtonAction, MenuState};
@@ -36,12 +36,12 @@ pub fn settings_main_menu_setup(mut commands: Commands, screen_mode: Res<ScreenM
             },
             OnSettingsMenuScreen,
         ))
-        .with_children(|parent| {
-            parent.spawn(TextBundle::from_section(
+        .with_children(|child_builder| {
+            child_builder.spawn(TextBundle::from_section(
                 "Settings",
                 TextStyle {
                     font_size: 120.,
-                    color: Color::rgb(0.9, 0.9, 0.9),
+                    color: TEXT_COLOR,
                     ..Default::default()
                 },
             ));
@@ -71,7 +71,7 @@ pub fn settings_main_menu_setup(mut commands: Commands, screen_mode: Res<ScreenM
             },
             OnSettingsMenuScreen,
         ))
-        .with_children(|parent| {
+        .with_children(|child_builder| {
             let button_style = Style {
                 // width: Val::Px(300.0),
                 // height: Val::Px(50.0),
@@ -83,11 +83,11 @@ pub fn settings_main_menu_setup(mut commands: Commands, screen_mode: Res<ScreenM
             };
             let button_text_style = TextStyle {
                 font_size: 50.0,
-                color: Color::rgb(0.9, 0.9, 0.9),
+                color: TEXT_COLOR,
                 ..Default::default()
             };
 
-            parent
+            child_builder
                 .spawn(NodeBundle {
                     style: Style {
                         align_items: AlignItems::Center,
@@ -96,9 +96,9 @@ pub fn settings_main_menu_setup(mut commands: Commands, screen_mode: Res<ScreenM
                     },
                     ..default()
                 })
-                .with_children(|parent| {
+                .with_children(|child_builder| {
                     // Display a label for the current setting
-                    parent.spawn(
+                    child_builder.spawn(
                         TextBundle::from_section("Window Mode:", button_text_style.clone())
                             .with_text_alignment(TextAlignment::Center)
                             .with_style(Style {
@@ -119,7 +119,7 @@ pub fn settings_main_menu_setup(mut commands: Commands, screen_mode: Res<ScreenM
                     for screen_mode_setting in
                         [ScreenMode::BorderlessFullscreen, ScreenMode::Windowed]
                     {
-                        let mut entity = parent.spawn((
+                        let mut entity = child_builder.spawn((
                             ButtonBundle {
                                 style: button_style.clone(),
                                 background_color: NORMAL_BUTTON.into(),
@@ -127,8 +127,8 @@ pub fn settings_main_menu_setup(mut commands: Commands, screen_mode: Res<ScreenM
                             },
                             screen_mode_setting,
                         ));
-                        entity.with_children(|parent| {
-                            parent.spawn(TextBundle::from_section(
+                        entity.with_children(|child_builder| {
+                            child_builder.spawn(TextBundle::from_section(
                                 format!("{screen_mode_setting:?}"),
                                 button_text_style.clone(),
                             ));
@@ -140,7 +140,7 @@ pub fn settings_main_menu_setup(mut commands: Commands, screen_mode: Res<ScreenM
                 });
 
             menu_button(
-                parent,
+                child_builder,
                 "Back",
                 MenuButtonAction::BackToMainMenu,
                 &Style {
@@ -201,12 +201,12 @@ pub fn settings_pause_setup(
             },
             OnSettingsMenuScreen,
         ))
-        .with_children(|parent| {
-            parent.spawn(TextBundle::from_section(
+        .with_children(|child_builder| {
+            child_builder.spawn(TextBundle::from_section(
                 "Settings",
                 TextStyle {
                     font_size: 120.,
-                    color: Color::rgb(0.9, 0.9, 0.9),
+                    color: TEXT_COLOR,
                     ..Default::default()
                 },
             ));
@@ -236,7 +236,7 @@ pub fn settings_pause_setup(
             },
             OnSettingsMenuScreen,
         ))
-        .with_children(|parent| {
+        .with_children(|child_builder| {
             let button_style = Style {
                 // width: Val::Px(300.0),
                 // height: Val::Px(50.0),
@@ -248,11 +248,11 @@ pub fn settings_pause_setup(
             };
             let button_text_style = TextStyle {
                 font_size: 50.0,
-                color: Color::rgb(0.9, 0.9, 0.9),
+                color: TEXT_COLOR,
                 ..Default::default()
             };
 
-            parent
+            child_builder
                 .spawn(NodeBundle {
                     style: Style {
                         align_items: AlignItems::Center,
@@ -261,9 +261,9 @@ pub fn settings_pause_setup(
                     },
                     ..default()
                 })
-                .with_children(|parent| {
+                .with_children(|child_builder| {
                     // Display a label for the current setting
-                    parent.spawn(
+                    child_builder.spawn(
                         TextBundle::from_section("Window Mode:", button_text_style.clone())
                             .with_text_alignment(TextAlignment::Center)
                             .with_style(Style {
@@ -284,7 +284,7 @@ pub fn settings_pause_setup(
                     for screen_mode_setting in
                         [ScreenMode::BorderlessFullscreen, ScreenMode::Windowed]
                     {
-                        let mut entity = parent.spawn((
+                        let mut entity = child_builder.spawn((
                             ButtonBundle {
                                 style: button_style.clone(),
                                 background_color: NORMAL_BUTTON.into(),
@@ -292,8 +292,8 @@ pub fn settings_pause_setup(
                             },
                             screen_mode_setting,
                         ));
-                        entity.with_children(|parent| {
-                            parent.spawn(TextBundle::from_section(
+                        entity.with_children(|child_builder| {
+                            child_builder.spawn(TextBundle::from_section(
                                 format!("{screen_mode_setting:?}"),
                                 button_text_style.clone(),
                             ));
@@ -305,7 +305,7 @@ pub fn settings_pause_setup(
                 });
 
             menu_button(
-                parent,
+                child_builder,
                 "Back",
                 PauseButtonAction::BackToPaused,
                 &Style {

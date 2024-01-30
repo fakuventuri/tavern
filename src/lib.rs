@@ -6,8 +6,6 @@ mod audio;
 mod ingame;
 mod loading;
 mod menu;
-// #[allow(dead_code, unused)]
-// mod player;
 
 // use crate::actions::ActionsPlugin;
 use crate::audio::InternalAudioPlugin;
@@ -16,9 +14,14 @@ use crate::loading::LoadingPlugin;
 use crate::menu::MenuPlugin;
 
 use bevy::app::{App, AppExit};
+#[allow(unused_imports)]
 #[cfg(debug_assertions)]
 use bevy::diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin};
 use bevy::prelude::*;
+
+// Constants
+pub const TEXT_COLOR: Color = Color::rgb(0.9, 0.9, 0.9);
+pub const MENU_BACKGROUND_COLOR: Color = Color::rgb(0.05, 0.05, 0.05);
 
 // This example game uses States to separate logic
 // See https://bevy-cheatbook.github.io/programming/states.html
@@ -63,7 +66,7 @@ impl Plugin for GamePlugin {
 
         #[cfg(debug_assertions)]
         {
-            app.add_plugins((FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin::default()));
+            // app.add_plugins((FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin::default()));
         }
     }
 }
