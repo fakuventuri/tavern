@@ -240,9 +240,8 @@ fn move_camera_system(
 ) {
     let (mut camera_transform, mut move_camera_to) = camera_q.single_mut();
 
-    // info!("{:?}", move_camera_to.0);
-
     if let Some(target_pos) = move_camera_to.0 {
+        info!("{:?}", move_camera_to.0);
         let target = target_pos.extend(0.);
         let current_position = camera_transform.translation;
         if current_position.distance(target) > 10. {
@@ -254,12 +253,12 @@ fn move_camera_system(
             camera_transform.translation.y = target.y;
             move_camera_to.0 = None;
         }
-    }
 
-    // Adjust CameraBounds
-    for (mut bound_transform, bound) in bounds_q.iter_mut() {
-        bound_transform.translation =
-            (bound.0 + camera_transform.translation.truncate()).extend(999.);
+        // Adjust CameraBounds
+        for (mut bound_transform, bound) in bounds_q.iter_mut() {
+            bound_transform.translation =
+                (bound.0 + camera_transform.translation.truncate()).extend(999.);
+        }
     }
 }
 
