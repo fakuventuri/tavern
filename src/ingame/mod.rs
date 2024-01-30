@@ -3,12 +3,13 @@ mod customer;
 mod pause_menu;
 use crate::loading::TextureAssets;
 use crate::menu::settings::{setting_button_handle, settings_button_colors, OnSettingsMenuScreen};
-use crate::{despawn_screen, remove_value_from_vec, GameState, ScreenMode};
+use crate::{despawn_screen, remove_value_from_vec, GameState, ScaleByAssetResolution, ScreenMode};
 use bevy::prelude::*;
 use bevy::sprite::collide_aabb::collide;
 use bevy::window::{CursorGrabMode, PrimaryWindow};
 
 use self::bar::{BarPlugin, Drink};
+use self::customer::CustomerPlugin;
 use self::pause_menu::{handle_button, settings_pause_setup, setup_pause_menu, OnPauseMenu};
 
 pub struct IngamePlugin;
@@ -65,6 +66,7 @@ impl Plugin for IngamePlugin {
         app //
             .add_state::<IngameState>()
             .add_plugins(BarPlugin)
+            .add_plugins(CustomerPlugin)
             // GameState::Playing // starts with IngameState::Disabled
             .add_systems(OnEnter(GameState::Playing), (setup_ingame, setup_camera))
             .add_systems(Update, handle_esc.run_if(in_state(GameState::Playing)))
@@ -221,7 +223,7 @@ fn setup_ingame(
             texture: textures.tavern_bg.clone(),
             transform: Transform {
                 translation: Vec3::new(0., 0., -10.),
-                scale: Vec3::new(1.5, 1.5, 0.0),
+                scale: ScaleByAssetResolution::Res720p.scale(),
                 ..Default::default()
             },
             ..Default::default()

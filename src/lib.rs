@@ -131,3 +131,17 @@ pub fn remove_value_from_vec<T: PartialEq>(value_to_remove: T, vec: &mut Vec<T>)
             .expect("InteractibleAction to remove is not active."),
     );
 }
+
+pub enum ScaleByAssetResolution {
+    Res1080p,
+    Res720p,
+}
+
+impl ScaleByAssetResolution {
+    pub fn scale(&self) -> Vec3 {
+        match self {
+            ScaleByAssetResolution::Res1080p => Vec3::new(1.0, 1.0, 0.0),
+            ScaleByAssetResolution::Res720p => Vec3::new(1.5, 1.5, 0.0),
+        }
+    }
+}

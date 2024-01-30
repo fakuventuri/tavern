@@ -1,9 +1,12 @@
-use bevy::prelude::*;
+use std::time::Duration;
 
-use crate::{loading::TextureAssets, GameState};
+use bevy::prelude::*;
+use rand::{seq::SliceRandom, Rng};
+
+use crate::{loading::TextureAssets, GameState, ScaleByAssetResolution};
 
 use super::{
-    customer::{generate_customer, CustomerBundle},
+    customer::{generate_random_customer, CustomerBundle},
     IngameState, Interactible, InteractibleAction, OnIngameScreen,
 };
 
@@ -22,8 +25,8 @@ impl Plugin for BarPlugin {
             .add_systems(
                 Update,
                 (
-                    fill_customer_slots.run_if(in_state(IngameState::Running)),
                     spawn_customers_in_slots.run_if(in_state(IngameState::Running)),
+                    spawn_customer.run_if(in_state(IngameState::Running)),
                 ),
             );
     }
@@ -50,12 +53,15 @@ impl Drink {
 #[derive(Component)]
 struct Bar {
     customer_slots: BarCustomerSlots,
+    // customer_queue: Vec<CustomerBundle>,
+    customer_spawn_timer: Timer,
 }
 
 impl Default for Bar {
     fn default() -> Self {
         Self {
             customer_slots: BarCustomerSlots::default(),
+            customer_spawn_timer: Timer::from_seconds(1., TimerMode::Once),
         }
     }
 }
@@ -67,7 +73,7 @@ fn setup_bar(mut commands: Commands, textures: Res<TextureAssets>) {
             texture: textures.bar.clone(),
             transform: Transform {
                 translation: Vec3::new(0., -733., 10.),
-                scale: Vec3::new(1.5, 1.5, 0.0),
+                scale: ScaleByAssetResolution::Res720p.scale(),
                 ..Default::default()
             },
             ..Default::default()
@@ -78,14 +84,14 @@ fn setup_bar(mut commands: Commands, textures: Res<TextureAssets>) {
         })
         .insert(OnIngameScreen);
 
-    // Drink slots
+    // Barrel Slots
     for (drink, barrel_pos) in Drink::iterator() {
         commands
             .spawn(SpriteBundle {
                 texture: textures.barrel.clone(),
                 transform: Transform {
                     translation: barrel_pos,
-                    scale: Vec3::new(1.5, 1.5, 0.0),
+                    scale: ScaleByAssetResolution::Res720p.scale(),
                     ..Default::default()
                 },
                 ..Default::default()
@@ -97,21 +103,15 @@ fn setup_bar(mut commands: Commands, textures: Res<TextureAssets>) {
     }
 }
 
-// Customer slot
-// CustomerBundle is a bundle of components that is used to spawn a customer
-// bool is true if the customer is spawned
-
+#[derive(Default)]
 struct CustomerSlot {
     customer: Option<CustomerBundle>,
     spawned: bool,
 }
 
-impl Default for CustomerSlot {
-    fn default() -> Self {
-        Self {
-            customer: None,
-            spawned: false,
-        }
+impl CustomerSlot {
+    fn is_full(&self) -> bool {
+        self.customer.is_some() || self.spawned
     }
 }
 
@@ -122,29 +122,33 @@ struct BarCustomerSlots {
     right: CustomerSlot,
 }
 
-fn fill_customer_slots(mut bar_q: Query<&mut Bar>, textures: Res<TextureAssets>) {
+impl BarCustomerSlots {
+    fn is_full(&self) -> bool {
+        self.left.is_full() && self.middle.is_full() && self.right.is_full()
+    }
+
+    fn get_random_empty_slot(&mut self) -> Option<&mut CustomerSlot> {
+        let mut rng = rand::thread_rng();
+        let mut slots = vec![&mut self.left, &mut self.middle, &mut self.right];
+        slots.shuffle(&mut rng);
+
+        slots.into_iter().find(|slot| !slot.is_full())
+    }
+}
+
+fn spawn_customer(mut bar_q: Query<&mut Bar>, textures: Res<TextureAssets>, time: Res<Time>) {
     let mut bar = bar_q.single_mut();
 
-    if bar.customer_slots.left.customer.is_none() {
-        bar.customer_slots.left.customer = Some(generate_customer(
-            Transform::from_translation(BAR_CUSTOMER_SLOT_LEFT) //
-                .with_scale(Vec3::new(1.5, 1.5, 0.0)),
-            textures.customer.clone(),
-        ));
-    }
-    if bar.customer_slots.middle.customer.is_none() {
-        bar.customer_slots.middle.customer = Some(generate_customer(
-            Transform::from_translation(BAR_CUSTOMER_SLOT_MIDDLE) //
-                .with_scale(Vec3::new(1.5, 1.5, 0.0)),
-            textures.customer.clone(),
-        ));
-    }
-    if bar.customer_slots.right.customer.is_none() {
-        bar.customer_slots.right.customer = Some(generate_customer(
-            Transform::from_translation(BAR_CUSTOMER_SLOT_RIGHT) //
-                .with_scale(Vec3::new(1.5, 1.5, 0.0)),
-            textures.customer.clone(),
-        ));
+    if !bar.customer_slots.is_full() {
+        if bar.customer_spawn_timer.tick(time.delta()).just_finished() {
+            if let Some(slot) = bar.customer_slots.get_random_empty_slot() {
+                slot.customer = Some(generate_random_customer(&textures));
+            }
+            bar.customer_spawn_timer.reset();
+            let rand_duration = rand::thread_rng().gen_range(2..5);
+            bar.customer_spawn_timer
+                .set_duration(Duration::from_secs(rand_duration));
+        }
     }
 }
 
@@ -152,15 +156,21 @@ fn spawn_customers_in_slots(mut commands: Commands, mut bar_q: Query<&mut Bar>) 
     let mut bar = bar_q.single_mut();
 
     if bar.customer_slots.left.customer.is_some() && !bar.customer_slots.left.spawned {
-        commands.spawn(bar.customer_slots.left.customer.take().unwrap());
+        let mut customer = bar.customer_slots.left.customer.take().unwrap();
+        customer.sprite_bundle.transform.translation = BAR_CUSTOMER_SLOT_LEFT;
+        commands.spawn(customer);
         bar.customer_slots.left.spawned = true;
     }
     if bar.customer_slots.middle.customer.is_some() && !bar.customer_slots.middle.spawned {
-        commands.spawn(bar.customer_slots.middle.customer.take().unwrap());
+        let mut customer = bar.customer_slots.middle.customer.take().unwrap();
+        customer.sprite_bundle.transform.translation = BAR_CUSTOMER_SLOT_MIDDLE;
+        commands.spawn(customer);
         bar.customer_slots.middle.spawned = true;
     }
     if bar.customer_slots.right.customer.is_some() && !bar.customer_slots.right.spawned {
-        commands.spawn(bar.customer_slots.right.customer.take().unwrap());
+        let mut customer = bar.customer_slots.right.customer.take().unwrap();
+        customer.sprite_bundle.transform.translation = BAR_CUSTOMER_SLOT_RIGHT;
+        commands.spawn(customer);
         bar.customer_slots.right.spawned = true;
     }
 }
