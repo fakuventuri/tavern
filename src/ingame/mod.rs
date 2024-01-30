@@ -6,7 +6,7 @@ use crate::menu::settings::{setting_button_handle, settings_button_colors, OnSet
 use crate::{despawn_screen, remove_value_from_vec, GameState, ScreenMode};
 use bevy::prelude::*;
 use bevy::sprite::collide_aabb::collide;
-use bevy::window::PrimaryWindow;
+use bevy::window::{CursorGrabMode, PrimaryWindow};
 
 use self::bar::{BarPlugin, Drink};
 use self::pause_menu::{handle_button, settings_pause_setup, setup_pause_menu, OnPauseMenu};
@@ -65,16 +65,20 @@ impl Plugin for IngamePlugin {
         app //
             .add_state::<IngameState>()
             .add_plugins(BarPlugin)
+            // GameState::Playing // starts with IngameState::Disabled
             .add_systems(OnEnter(GameState::Playing), (setup_ingame, setup_camera))
+            .add_systems(Update, handle_esc.run_if(in_state(GameState::Playing)))
+            .add_systems(OnExit(GameState::Playing), despawn_screen::<OnIngameScreen>)
             // IngameState::Running
+            .add_systems(OnEnter(IngameState::Running), cursor_grab)
             .add_systems(
                 Update,
                 (
-                    handle_esc.run_if(in_state(GameState::Playing)),
                     interactibles_system.run_if(in_state(IngameState::Running)),
                     move_camera_system.run_if(in_state(IngameState::Running)),
                 ),
             )
+            .add_systems(OnExit(IngameState::Running), cursor_ungrab)
             // IngameState::Paused
             .add_systems(OnEnter(IngameState::Paused), setup_pause_menu)
             .add_systems(Update, handle_button.run_if(in_state(IngameState::Paused)))
@@ -94,8 +98,7 @@ impl Plugin for IngamePlugin {
                 despawn_screen::<OnSettingsMenuScreen>,
             )
             // To Main Menu
-            .add_systems(OnEnter(IngameState::ToMenu), go_to_main_menu)
-            .add_systems(OnExit(GameState::Playing), despawn_screen::<OnIngameScreen>);
+            .add_systems(OnEnter(IngameState::ToMenu), go_to_main_menu);
     }
 }
 
@@ -185,7 +188,7 @@ fn setup_camera(mut commands: Commands) {
     };
     // camera_bundle.camera_2d.clear_color =
     //     bevy::core_pipeline::clear_color::ClearColorConfig::Custom(Color::rgb(0.5, 0.5, 0.5));
-    camera_bundle.camera.hdr = true; // Testing HDR for highligting interactibles
+    // camera_bundle.camera.hdr = true; // Weir behabior (like a weird effect) with Rgba with high alpha values
 
     commands
         .spawn(camera_bundle)
@@ -420,6 +423,21 @@ fn handle_esc(
             _ => {}
         }
     }
+}
+
+/// Grab Cursor to prevent it from leaving the window
+fn cursor_grab(mut q_windows: Query<&mut Window, With<PrimaryWindow>>) {
+    let mut primary_window = q_windows.single_mut();
+
+    // Use the cursor, but not let it leave the window.
+    primary_window.cursor.grab_mode = CursorGrabMode::Confined;
+}
+
+/// Release Cursor
+fn cursor_ungrab(mut q_windows: Query<&mut Window, With<PrimaryWindow>>) {
+    let mut primary_window = q_windows.single_mut();
+
+    primary_window.cursor.grab_mode = CursorGrabMode::None;
 }
 
 fn go_to_main_menu(mut game_next_state: ResMut<NextState<GameState>>) {
