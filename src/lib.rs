@@ -66,8 +66,19 @@ impl Plugin for GamePlugin {
 
         #[cfg(debug_assertions)]
         {
+            // add debug_exit_with_ctrl_w system to debug mode
+            app.add_systems(Update, debug_exit_with_ctrl_w);
             // app.add_plugins((FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin::default()));
         }
+    }
+}
+
+fn debug_exit_with_ctrl_w(
+    keyboard_input: Res<Input<KeyCode>>,
+    mut app_exit_events: EventWriter<AppExit>,
+) {
+    if keyboard_input.pressed(KeyCode::ControlLeft) && keyboard_input.just_pressed(KeyCode::W) {
+        app_exit_events.send(AppExit);
     }
 }
 

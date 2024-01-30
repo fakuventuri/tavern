@@ -39,4 +39,6 @@ pub struct TextureAssets {
     pub bar: Handle<Image>,
     #[asset(path = "textures/barrel.png")]
     pub barrel: Handle<Image>,
+    #[asset(path = "textures/customers/gray_outlined.png")]
+    pub customer: Handle<Image>,
 }
