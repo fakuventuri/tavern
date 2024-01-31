@@ -4,6 +4,7 @@ use bevy::prelude::*;
 use rand::{seq::SliceRandom, Rng};
 
 use crate::{loading::TextureAssets, remove_value_from_vec, GameState, ScaleByAssetResolution};
+use std::fmt::{Display, Formatter};
 
 use super::{
     customer::{generate_random_customer, Customer, CustomerBundle},
@@ -54,6 +55,24 @@ impl Drink {
             (Drink::Whiskey, Vec3::new(50., -615., 12.)),
         ]
         .into_iter()
+    }
+
+    pub fn get_price(&self) -> f64 {
+        match self {
+            Drink::Beer => 2.,
+            Drink::Wine => 5.,
+            Drink::Whiskey => 11.,
+        }
+    }
+}
+
+impl Display for Drink {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Drink::Beer => write!(f, "Beer"),
+            Drink::Wine => write!(f, "Wine"),
+            Drink::Whiskey => write!(f, "Whiskey"),
+        }
     }
 }
 

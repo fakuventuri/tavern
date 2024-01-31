@@ -94,14 +94,28 @@ struct IgnoredInteractibleActions(Vec<InteractibleAction>);
 #[derive(Resource)]
 struct DrinkInHand(Option<Drink>);
 
+#[derive(Component)]
+struct InHandText;
+
 #[derive(Resource)]
 #[allow(dead_code)]
 struct PlayerStats {
-    pub money: u32,
-    pub reputation: u32,              // level
+    pub money: f64,
+    pub streak: u32,
+    pub highest_streak: u32,
+    pub reputation_level: u32,
     pub reputation_progress: u32,     // 1 exp = 1 customer
     pub reputation_progress_max: u32, // ToDo fn to get max reputation for current level with a formula
 }
+
+#[derive(Component)]
+struct MoneyText;
+
+#[derive(Component)]
+struct StreakText;
+
+#[derive(Component)]
+struct HighestStreakText;
 
 #[derive(Resource)]
 struct CustomersStats {
@@ -128,15 +142,17 @@ impl Plugin for IngamePlugin {
             .add_state::<IngameState>()
             .insert_resource(DrinkInHand(None))
             .insert_resource(PlayerStats {
-                money: 0,
-                reputation: 0,
+                money: 0.,
+                streak: 0,
+                highest_streak: 0,
+                reputation_level: 0,
                 reputation_progress: 0,
                 reputation_progress_max: 10,
             })
             .insert_resource(CustomersStats {
                 // ToDo fine tune values
-                customers_wait_duration: 8.,
-                customers_spawn_gap: 2..8,
+                customers_wait_duration: 3.5,
+                customers_spawn_gap: 0..3,
             })
             .insert_resource(CameraPosition::Zero)
             .add_plugins(BarPlugin)
@@ -148,6 +164,7 @@ impl Plugin for IngamePlugin {
                 (
                     handle_esc.run_if(in_state(GameState::Playing)),
                     keys_camera_control.run_if(in_state(GameState::Playing)),
+                    update_ui_texts.run_if(in_state(GameState::Playing)),
                 ),
             )
             .add_systems(OnExit(GameState::Playing), despawn_screen::<OnIngameScreen>)
@@ -311,6 +328,102 @@ fn setup_ingame(
         .insert(OnIngameScreen)
         .insert(InteractibleBundle::new(InteractibleAction::ExitBar));
 
+    // InHandText
+    commands
+        .spawn(
+            TextBundle::from_section(
+                "In hand: None",
+                TextStyle {
+                    font_size: 50.,
+                    color: Color::BLACK,
+                    ..Default::default()
+                },
+            )
+            .with_text_alignment(TextAlignment::Center)
+            .with_background_color(Color::rgba(1., 1., 1., 0.1))
+            .with_style(Style {
+                position_type: PositionType::Absolute,
+                left: Val::Px(0.),
+                bottom: Val::Px(0.),
+                padding: UiRect::all(Val::Px(10.)),
+                ..Default::default()
+            }),
+        )
+        .insert(InHandText)
+        .insert(OnIngameScreen);
+
+    // MoneyText
+    commands
+        .spawn(
+            TextBundle::from_section(
+                "Money: 0",
+                TextStyle {
+                    font_size: 50.,
+                    color: Color::BLACK,
+                    ..Default::default()
+                },
+            )
+            .with_text_alignment(TextAlignment::Center)
+            .with_background_color(Color::rgba(1., 1., 1., 0.1))
+            .with_style(Style {
+                position_type: PositionType::Absolute,
+                left: Val::Px(0.),
+                top: Val::Px(0.),
+                padding: UiRect::all(Val::Px(10.)),
+                ..Default::default()
+            }),
+        )
+        .insert(MoneyText)
+        .insert(OnIngameScreen);
+
+    // StreakText
+    commands
+        .spawn(
+            TextBundle::from_section(
+                "Streak: 0",
+                TextStyle {
+                    font_size: 50.,
+                    color: Color::BLACK,
+                    ..Default::default()
+                },
+            )
+            .with_text_alignment(TextAlignment::Center)
+            .with_background_color(Color::rgba(1., 1., 1., 0.1))
+            .with_style(Style {
+                position_type: PositionType::Absolute,
+                left: Val::Percent(44.),
+                top: Val::Px(0.),
+                padding: UiRect::all(Val::Px(10.)),
+                ..Default::default()
+            }),
+        )
+        .insert(StreakText)
+        .insert(OnIngameScreen);
+
+    // HighestStreakText
+    commands
+        .spawn(
+            TextBundle::from_section(
+                "Highest Streak: 0",
+                TextStyle {
+                    font_size: 50.,
+                    color: Color::BLACK,
+                    ..Default::default()
+                },
+            )
+            .with_text_alignment(TextAlignment::Center)
+            .with_background_color(Color::rgba(1., 1., 1., 0.1))
+            .with_style(Style {
+                position_type: PositionType::Absolute,
+                right: Val::Px(0.),
+                top: Val::Px(0.),
+                padding: UiRect::all(Val::Px(10.)),
+                ..Default::default()
+            }),
+        )
+        .insert(HighestStreakText)
+        .insert(OnIngameScreen);
+
     // Set game state to Running to start systems
     ingame_state.set(IngameState::Running)
 }
@@ -454,6 +567,64 @@ fn interactibles_system(
             interactible_sprite.color = interaction_sprite_colors.normal;
         }
     }
+}
+
+fn update_ui_texts(
+    mut q_in_hand_text: Query<
+        &mut Text,
+        (
+            With<InHandText>,
+            Without<MoneyText>,
+            Without<StreakText>,
+            Without<HighestStreakText>,
+        ),
+    >,
+    mut q_money_text: Query<
+        &mut Text,
+        (
+            With<MoneyText>,
+            Without<InHandText>,
+            Without<StreakText>,
+            Without<HighestStreakText>,
+        ),
+    >,
+    mut q_streak_text: Query<
+        &mut Text,
+        (
+            With<StreakText>,
+            Without<InHandText>,
+            Without<MoneyText>,
+            Without<HighestStreakText>,
+        ),
+    >,
+    mut q_highest_streak_text: Query<
+        &mut Text,
+        (
+            With<HighestStreakText>,
+            Without<InHandText>,
+            Without<MoneyText>,
+            Without<StreakText>,
+        ),
+    >,
+    drink_in_hand: Res<DrinkInHand>,
+    player_stats: Res<PlayerStats>,
+) {
+    let mut in_hand_text = q_in_hand_text.single_mut();
+    if let Some(drink) = drink_in_hand.0 {
+        in_hand_text.sections[0].value = format!("In hand: {}", drink);
+    } else {
+        in_hand_text.sections[0].value = "In hand: None".to_string();
+    }
+
+    let mut money_text = q_money_text.single_mut();
+    money_text.sections[0].value = format!("Money: {}", player_stats.money);
+
+    let mut streak_text = q_streak_text.single_mut();
+    streak_text.sections[0].value = format!("Streak: {}", player_stats.streak);
+
+    let mut highest_streak_text = q_highest_streak_text.single_mut();
+    highest_streak_text.sections[0].value =
+        format!("Highest Streak: {}", player_stats.highest_streak);
 }
 
 fn keys_camera_control(

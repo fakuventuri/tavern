@@ -86,8 +86,8 @@ fn set_screen_mode_with_keys(
     keyboard_input: Res<Input<KeyCode>>,
     mut screen_mode: ResMut<ScreenMode>,
 ) {
-    if keyboard_input.pressed(KeyCode::AltLeft)
-        && (keyboard_input.just_pressed(KeyCode::Return) || keyboard_input.just_pressed(KeyCode::F))
+    if (keyboard_input.pressed(KeyCode::AltLeft) && keyboard_input.just_pressed(KeyCode::Return))
+        || keyboard_input.just_pressed(KeyCode::F)
     {
         match *screen_mode {
             ScreenMode::Windowed => {

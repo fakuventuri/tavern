@@ -6,13 +6,13 @@ use crate::{loading::TextureAssets, ScaleByAssetResolution};
 use super::{
     bar::{Bar, CustomerSlotMarker, Drink, BAR_CUSTOMER_HIDDEN_Y, BAR_CUSTOMER_TARGET_Y},
     ClickedInteractible, CustomersStats, DrinkInHand, IngameState, InteractibleAction,
-    InteractibleBundle, InteractionSpriteColors, OnIngameScreen,
+    InteractibleBundle, InteractionSpriteColors, OnIngameScreen, PlayerStats,
 };
 
 pub struct CustomerPlugin;
 
 const CUSTOMER_SLIDE_SPEED: f32 = 810.;
-const CUSTOMER_DRINKING_DURATION: f32 = 3.;
+const CUSTOMER_DRINKING_DURATION: f32 = 1.;
 
 impl Plugin for CustomerPlugin {
     fn build(&self, app: &mut App) {
@@ -132,6 +132,7 @@ fn customers_system(
     customers_stats: Res<CustomersStats>,
     mut bar_q: Query<&mut Bar>,
     mut drink_in_hand: ResMut<DrinkInHand>,
+    mut player_stats: ResMut<PlayerStats>,
 ) {
     for (
         entity,
@@ -169,6 +170,8 @@ fn customers_system(
                     * time.delta_seconds();
 
                 if timer.tick(time.delta()).just_finished() {
+                    // Reset streak on failed drink delivery
+                    player_stats.streak = 0;
                     customer.state = CustomerState::Leaving;
                 } else if clicked.is_some() {
                     commands.entity(entity).remove::<ClickedInteractible>(); // Reset clicked
@@ -180,12 +183,11 @@ fn customers_system(
                         &transform,
                         &interaction_sprite_colors,
                         1.,
-                        2.,
+                        1.,
                     );
 
                     if let Some(drink) = drink_in_hand.0.take() {
                         if drink == customer.drink {
-                            // ToDo Add money and rep. Get drink value from drink
                             transform.translation.y = BAR_CUSTOMER_TARGET_Y;
                             interaction_sprite_colors.normal = Color::rgb(0.6, 1., 0.6);
                             interaction_sprite_colors.highlight = Color::rgb(0.9, 1.3, 0.9);
@@ -203,14 +205,22 @@ fn customers_system(
                                 10.,
                                 CUSTOMER_DRINKING_DURATION,
                             );
+
+                            // Add money, streak and reputation
+                            player_stats.money +=
+                                drink.get_price() * (player_stats.streak as f64 / 2.).max(1.);
+                            player_stats.streak += 1;
+                            if player_stats.streak > player_stats.highest_streak {
+                                player_stats.highest_streak = player_stats.streak;
+                            }
+                            player_stats.reputation_progress += 1;
                         }
                     }
                 }
             }
             CustomerState::Drinking(timer) => {
-                // ToDo Drinking animation using Sin with the timer as input
-                // 180. = oscillation frequency // 4. = oscillation range
-                transform.translation.y += (timer.percent() * 45.).cos()
+                // 20. = oscillation frequency // 2. = oscillation range
+                transform.translation.y += (timer.percent() * 20.).cos()
                 * (180. / std::f32::consts::PI) // In parentesis = convert to radians
                 * 2.
                 * time.delta_seconds();
