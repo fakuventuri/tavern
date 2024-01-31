@@ -1,3 +1,15 @@
+//! This module contains the implementation of the in-game functionality of the tavern.
+//!
+//! It includes the main plugin `IngamePlugin` that sets up the systems and resources required for the in-game state.
+//! The plugin handles the logic for different states of the game, such as running and paused.
+//!
+//! The module also defines various components, resources, and systems used in the in-game functionality.
+//! These include components like `OnIngameScreen`, `ClickedInteractible`, `InteractibleBundle`, etc.
+//! Resources like `DrinkInHand`, `PlayerStats`, `CustomersStats`, etc. are used to store game-related data.
+//! Systems like `setup_camera`, `setup_ingame`, `handle_esc`, `interactibles_system`, etc. handle different aspects of the in-game functionality.
+//!
+//! The in-game functionality allows players to interact with various objects in the tavern, serve customers, manage resources, and progress in the game.
+
 mod bar;
 mod customer;
 mod pause_menu;
