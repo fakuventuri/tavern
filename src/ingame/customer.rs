@@ -26,7 +26,7 @@ impl Plugin for CustomerPlugin {
 
 #[derive(Component)]
 pub struct Customer {
-    name: String,
+    _name: String,
     state: CustomerState,
     drink: Drink,
 }
@@ -51,7 +51,7 @@ impl CustomerBundle {
     pub fn new(name: &str, drink: Drink, texture: Handle<Image>, transform: Transform) -> Self {
         Self {
             customer: Customer {
-                name: name.to_string(),
+                _name: name.to_string(),
                 state: CustomerState::Spawning,
                 drink,
             },

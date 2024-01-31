@@ -50,6 +50,7 @@ impl Plugin for MenuPlugin {
                     on_resize, //.run_if(in_state(GameState::Menu)),
                     // handle_buttons.run_if(in_state(MenuState::Main)),
                     esc_to_quit.run_if(in_state(MenuState::Main)),
+                    space_to_play.run_if(in_state(MenuState::Main)),
                 ),
             )
             .add_systems(OnExit(MenuState::Main), despawn_screen::<OnMainMenuScreen>)
@@ -325,7 +326,7 @@ fn setup_main_menu(mut commands: Commands, textures: Res<TextureAssets>) {
                 visibility: Visibility::Hidden,
                 ..Default::default()
             },
-            Popup,
+            ExitPopup,
             OnMainMenuScreen,
         ))
         .with_children(|child_builder| {
@@ -433,6 +434,17 @@ fn handle_buttons(
     }
 }
 
+fn space_to_play(
+    keys: Res<Input<KeyCode>>,
+    mut game_state: ResMut<NextState<GameState>>,
+    mut menu_state: ResMut<NextState<MenuState>>,
+) {
+    if keys.just_pressed(KeyCode::Space) {
+        game_state.set(GameState::Playing);
+        menu_state.set(MenuState::Disabled);
+    }
+}
+
 #[derive(Component)]
 struct QuitEscTime {
     time: Option<Stopwatch>,
@@ -449,7 +461,7 @@ fn esc_to_quit(
     mut quit_esc_time_query: Query<&mut QuitEscTime>,
     time: Res<Time>,
     mut menu_state: ResMut<NextState<MenuState>>,
-    mut query_popup_visibility: Query<&mut Visibility, With<Popup>>,
+    mut query_popup_visibility: Query<&mut Visibility, With<ExitPopup>>,
 ) {
     let mut quit_esc_time = quit_esc_time_query.single_mut();
     if keys.just_pressed(KeyCode::Escape) {
@@ -474,7 +486,7 @@ fn esc_to_quit(
 }
 
 #[derive(Component)]
-struct Popup;
+struct ExitPopup;
 
 fn on_resize(mut resize_reader: EventReader<WindowResized>, mut ui_scale: ResMut<UiScale>) {
     // // Window size
