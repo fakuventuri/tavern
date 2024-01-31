@@ -135,6 +135,32 @@ enum CameraPosition {
     TwoShelf,
 }
 
+impl CameraPosition {
+    fn down(&mut self) {
+        *self = match *self {
+            CameraPosition::Zero => CameraPosition::OneShelf,
+            CameraPosition::OneShelf => CameraPosition::TwoShelf,
+            CameraPosition::TwoShelf => CameraPosition::TwoShelf,
+        }
+    }
+
+    fn up(&mut self) {
+        *self = match *self {
+            CameraPosition::Zero => CameraPosition::Zero,
+            CameraPosition::OneShelf => CameraPosition::Zero,
+            CameraPosition::TwoShelf => CameraPosition::OneShelf,
+        }
+    }
+
+    fn to_vec2(&self) -> Vec2 {
+        match *self {
+            CameraPosition::Zero => Vec2::new(0., 0.),
+            CameraPosition::OneShelf => Vec2::new(0., -275.),
+            CameraPosition::TwoShelf => Vec2::new(0., -630.),
+        }
+    }
+}
+
 /// IngamePlugin logic is only active during the State `GameState::Playing`
 impl Plugin for IngamePlugin {
     fn build(&self, app: &mut App) {
@@ -150,8 +176,7 @@ impl Plugin for IngamePlugin {
                 reputation_progress_max: 10,
             })
             .insert_resource(CustomersStats {
-                // ToDo fine tune values
-                customers_wait_duration: 3.5,
+                customers_wait_duration: 3.,
                 customers_spawn_gap: 0..3,
             })
             .insert_resource(CameraPosition::Zero)
@@ -639,57 +664,21 @@ fn keys_camera_control(
     let mut move_camera_to = move_camera_to_q.single_mut();
 
     if keys.just_pressed(KeyCode::W) || keys.just_pressed(KeyCode::Up) {
-        match *camera_position {
-            CameraPosition::Zero => {}
-            CameraPosition::OneShelf => {
-                move_camera_to.0 = Some(Vec2::new(0., 0.)); // -275. = One shelf height | -630. = Two shelf height
-                *camera_position = CameraPosition::Zero;
-            }
-            CameraPosition::TwoShelf => {
-                move_camera_to.0 = Some(Vec2::new(0., -275.)); // -275. = One shelf height | -630. = Two shelf height
-                *camera_position = CameraPosition::OneShelf;
-            }
-        }
+        camera_position.up();
+        move_camera_to.0 = Some(camera_position.to_vec2());
     }
     if keys.just_pressed(KeyCode::S) || keys.just_pressed(KeyCode::Down) {
-        match *camera_position {
-            CameraPosition::Zero => {
-                move_camera_to.0 = Some(Vec2::new(0., -275.)); // -275. = One shelf height | -630. = Two shelf height
-                *camera_position = CameraPosition::OneShelf;
-            }
-            CameraPosition::OneShelf => {
-                move_camera_to.0 = Some(Vec2::new(0., -630.)); // -275. = One shelf height | -630. = Two shelf height
-                *camera_position = CameraPosition::TwoShelf;
-            }
-            CameraPosition::TwoShelf => {}
-        }
+        camera_position.down();
+        move_camera_to.0 = Some(camera_position.to_vec2());
     }
 
     if let Some(scroll) = scroll_evr.read().last() {
         if scroll.y < 0. {
-            match *camera_position {
-                CameraPosition::Zero => {
-                    move_camera_to.0 = Some(Vec2::new(0., -275.)); // -275. = One shelf height | -630. = Two shelf height
-                    *camera_position = CameraPosition::OneShelf;
-                }
-                CameraPosition::OneShelf => {
-                    move_camera_to.0 = Some(Vec2::new(0., -630.)); // -275. = One shelf height | -630. = Two shelf height
-                    *camera_position = CameraPosition::TwoShelf;
-                }
-                CameraPosition::TwoShelf => {}
-            }
+            camera_position.down();
+            move_camera_to.0 = Some(camera_position.to_vec2());
         } else if scroll.y > 0. {
-            match *camera_position {
-                CameraPosition::Zero => {}
-                CameraPosition::OneShelf => {
-                    move_camera_to.0 = Some(Vec2::new(0., 0.)); // -275. = One shelf height | -630. = Two shelf height
-                    *camera_position = CameraPosition::Zero;
-                }
-                CameraPosition::TwoShelf => {
-                    move_camera_to.0 = Some(Vec2::new(0., -275.)); // -275. = One shelf height | -630. = Two shelf height
-                    *camera_position = CameraPosition::OneShelf;
-                }
-            }
+            camera_position.up();
+            move_camera_to.0 = Some(camera_position.to_vec2());
         }
     }
 }
