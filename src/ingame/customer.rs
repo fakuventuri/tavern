@@ -1,4 +1,4 @@
-use bevy::prelude::*;
+use bevy::{prelude::*, transform::commands};
 use rand::seq::{IteratorRandom, SliceRandom};
 
 use crate::{loading::TextureAssets, ScaleByAssetResolution};
@@ -19,8 +19,55 @@ impl Plugin for CustomerPlugin {
         app //
             .add_systems(
                 Update,
-                customers_system.run_if(in_state(IngameState::Running)),
+                (
+                    customers_system.run_if(in_state(IngameState::Running)),
+                    handle_order_popup.run_if(in_state(IngameState::Running)),
+                ),
             );
+    }
+}
+
+#[derive(Component)]
+struct OrderPopup(Timer);
+
+#[derive(Bundle)]
+struct OrderPopupBundle {
+    order_popup_marker: OrderPopup,
+    text_2d_bundle: Text2dBundle,
+    marker: OnIngameScreen,
+}
+
+impl OrderPopupBundle {
+    fn new(drink: Drink, translation: Vec3, color: Color, extra_z: f32, duration: f32) -> Self {
+        Self {
+            order_popup_marker: OrderPopup(Timer::from_seconds(duration, TimerMode::Once)),
+            text_2d_bundle: Text2dBundle {
+                text: Text {
+                    sections: vec![TextSection {
+                        value: match drink {
+                            Drink::Beer => "Beer",
+                            Drink::Wine => "Wine",
+                            Drink::Whiskey => "Whiskey",
+                        }
+                        .to_string(),
+                        style: TextStyle {
+                            font_size: 55.,
+                            color,
+                            ..Default::default()
+                        },
+                    }],
+                    linebreak_behavior: bevy::text::BreakLineOn::NoWrap,
+                    alignment: TextAlignment::Center,
+                },
+                transform: Transform {
+                    translation: Vec3::new(translation.x, -325., 12. + extra_z),
+                    ..Default::default()
+                },
+
+                ..Default::default()
+            },
+            marker: OnIngameScreen,
+        }
     }
 }
 
@@ -125,6 +172,17 @@ fn customers_system(
                     customer.state = CustomerState::Leaving;
                 } else if clicked.is_some() {
                     commands.entity(entity).remove::<ClickedInteractible>(); // Reset clicked
+
+                    // Show order popup on customer click
+                    spawn_popup(
+                        &mut commands,
+                        &customer,
+                        &transform,
+                        &interaction_sprite_colors,
+                        1.,
+                        2.,
+                    );
+
                     if let Some(drink) = drink_in_hand.0.take() {
                         if drink == customer.drink {
                             // ToDo Add money and rep. Get drink value from drink
@@ -135,6 +193,16 @@ fn customers_system(
                                 CUSTOMER_DRINKING_DURATION,
                                 TimerMode::Once,
                             ));
+
+                            // Show order popup on Successful drink delivery
+                            spawn_popup(
+                                &mut commands,
+                                &customer,
+                                &transform,
+                                &interaction_sprite_colors,
+                                10.,
+                                CUSTOMER_DRINKING_DURATION,
+                            );
                         }
                     }
                 }
@@ -158,6 +226,56 @@ fn customers_system(
                     bar_q.single_mut().remove_customer(slot_marker);
                 }
             }
+        }
+    }
+}
+
+// ToDo find a better way that dont spawn multiple popups and or dont collide in z axis
+fn spawn_popup(
+    commands: &mut Commands,
+    customer: &Customer,
+    transform: &Transform,
+    interaction_sprite_colors: &InteractionSpriteColors,
+    extra_z: f32,
+    duration: f32,
+) {
+    // Background
+    commands
+        .spawn(SpriteBundle {
+            sprite: Sprite {
+                color: Color::BLACK,
+                custom_size: Some(Vec2::new(200., 100.)),
+                ..default()
+            },
+            transform: Transform::from_translation(Vec3::new(
+                transform.translation.x,
+                -325.,
+                11. + extra_z,
+            )),
+            ..default()
+        })
+        .insert(OnIngameScreen)
+        .insert(OrderPopup(Timer::from_seconds(duration, TimerMode::Once)));
+    // Popup text
+    commands.spawn(OrderPopupBundle::new(
+        customer.drink,
+        transform.translation,
+        interaction_sprite_colors.normal,
+        extra_z,
+        duration,
+    ));
+}
+
+fn handle_order_popup(
+    mut commands: Commands,
+    time: Res<Time>,
+    mut query: Query<(Entity, &mut OrderPopup, &mut Transform)>,
+) {
+    for (entity, mut order_popup, mut _transform) in query.iter_mut() {
+        if order_popup.0.tick(time.delta()).just_finished() {
+            commands.entity(entity).despawn_recursive();
+        } else {
+            // _transform.translation.y += 100. * time.delta_seconds();
         }
     }
 }

@@ -49,9 +49,9 @@ pub enum Drink {
 impl Drink {
     pub fn iterator() -> impl Iterator<Item = (Drink, Vec3)> {
         vec![
-            (Drink::Beer, Vec3::new(750., -615., 13.)),
-            (Drink::Wine, Vec3::new(400., -615., 12.)),
-            (Drink::Whiskey, Vec3::new(50., -615., 11.)),
+            (Drink::Beer, Vec3::new(750., -615., 14.)),
+            (Drink::Wine, Vec3::new(400., -615., 13.)),
+            (Drink::Whiskey, Vec3::new(50., -615., 12.)),
         ]
         .into_iter()
     }
@@ -118,6 +118,33 @@ fn setup_bar(mut commands: Commands, textures: Res<TextureAssets>) {
                 ..Default::default()
             })
             .insert(InteractibleBundle::new(InteractibleAction::Barrel(drink)))
+            .insert(OnIngameScreen);
+
+        commands
+            .spawn(Text2dBundle {
+                text: Text {
+                    sections: vec![TextSection {
+                        value: match drink {
+                            Drink::Beer => "Beer",
+                            Drink::Wine => "Wine",
+                            Drink::Whiskey => "Whiskey",
+                        }
+                        .to_string(),
+                        style: TextStyle {
+                            font_size: 55.,
+                            color: Color::BLACK,
+                            ..Default::default()
+                        },
+                    }],
+                    linebreak_behavior: bevy::text::BreakLineOn::NoWrap,
+                    alignment: TextAlignment::Center,
+                },
+                transform: Transform {
+                    translation: barrel_pos + Vec3::new(-50., 25., 1.),
+                    ..Default::default()
+                },
+                ..Default::default()
+            })
             .insert(OnIngameScreen);
     }
 }
