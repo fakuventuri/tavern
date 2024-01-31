@@ -3,7 +3,7 @@ mod customer;
 mod pause_menu;
 use crate::loading::TextureAssets;
 use crate::menu::settings::{setting_button_handle, settings_button_colors, OnSettingsMenuScreen};
-use crate::{despawn_screen, remove_value_from_vec, GameState, ScaleByAssetResolution, ScreenMode};
+use crate::{despawn_screen, GameState, ScaleByAssetResolution, ScreenMode};
 use bevy::prelude::*;
 use bevy::sprite::collide_aabb::collide;
 use bevy::window::{CursorGrabMode, PrimaryWindow};
@@ -14,7 +14,7 @@ use self::pause_menu::{handle_button, settings_pause_setup, setup_pause_menu, On
 
 pub struct IngamePlugin;
 
-const CAMERA_SPEED: f32 = 650.;
+const CAMERA_SPEED: f32 = 800.;
 
 #[derive(Component)]
 pub struct OnIngameScreen;
@@ -32,9 +32,29 @@ pub enum IngameState {
     Diabled,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
-enum InteractibleAction {
-    EnterBar,
+#[derive(Component)]
+pub struct ClickedInteractible;
+
+#[derive(Bundle)]
+pub struct InteractibleBundle {
+    interactible_action: InteractibleAction,
+    interaction_sprite_colors: InteractionSpriteColors,
+}
+
+impl InteractibleBundle {
+    pub fn new(interactible_action: InteractibleAction) -> Self {
+        Self {
+            interactible_action,
+            interaction_sprite_colors: InteractionSpriteColors {
+                ..Default::default()
+            },
+        }
+    }
+}
+
+#[derive(Component, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum InteractibleAction {
+    Bar,
     ExitBar,
     Barrel(Drink),
     Customer,
@@ -49,9 +69,19 @@ impl InteractibleAction {
     }
 }
 
-#[derive(Component, Debug)]
-struct Interactible {
-    action: InteractibleAction,
+#[derive(Component)]
+pub struct InteractionSpriteColors {
+    normal: Color,
+    highlight: Color,
+}
+
+impl Default for InteractionSpriteColors {
+    fn default() -> Self {
+        Self {
+            normal: Color::rgb(1., 1., 1.),
+            highlight: Color::rgb(1.3, 1.3, 1.3),
+        }
+    }
 }
 
 #[derive(Component)]
@@ -60,16 +90,64 @@ struct ActiveInteractibleActions(Vec<InteractibleAction>);
 #[derive(Component)]
 struct IgnoredInteractibleActions(Vec<InteractibleAction>);
 
+#[derive(Resource)]
+struct DrinkInHand(Option<Drink>);
+
+#[derive(Resource)]
+struct PlayerStats {
+    pub money: u32,
+    pub reputation: u32,              // level
+    pub reputation_progress: u32,     // 1 exp = 1 customer
+    pub reputation_progress_max: u32, // ToDo fn to get max reputation for current level with a formula
+}
+
+#[derive(Resource)]
+struct CustomersStats {
+    pub customers_wait_duration: f32,
+    pub customers_spawn_gap: std::ops::Range<u64>,
+}
+
+// #[derive(Resource)]
+// struct Workday {
+//     pub timer: Timer,
+// }
+
+#[derive(Resource)]
+enum CameraPosition {
+    Zero,
+    OneShelf,
+    TwoShelf,
+}
+
 /// IngamePlugin logic is only active during the State `GameState::Playing`
 impl Plugin for IngamePlugin {
     fn build(&self, app: &mut App) {
         app //
             .add_state::<IngameState>()
+            .insert_resource(DrinkInHand(None))
+            .insert_resource(PlayerStats {
+                money: 0,
+                reputation: 0,
+                reputation_progress: 0,
+                reputation_progress_max: 10,
+            })
+            .insert_resource(CustomersStats {
+                // ToDo fine tune values
+                customers_wait_duration: 8.,
+                customers_spawn_gap: 2..8,
+            })
+            .insert_resource(CameraPosition::Zero)
             .add_plugins(BarPlugin)
             .add_plugins(CustomerPlugin)
             // GameState::Playing // starts with IngameState::Disabled
             .add_systems(OnEnter(GameState::Playing), (setup_ingame, setup_camera))
-            .add_systems(Update, handle_esc.run_if(in_state(GameState::Playing)))
+            .add_systems(
+                Update,
+                (
+                    handle_esc.run_if(in_state(GameState::Playing)),
+                    handle_keys.run_if(in_state(GameState::Playing)),
+                ),
+            )
             .add_systems(OnExit(GameState::Playing), despawn_screen::<OnIngameScreen>)
             // IngameState::Running
             .add_systems(OnEnter(IngameState::Running), cursor_grab)
@@ -205,15 +283,15 @@ fn setup_ingame(
     mut ingame_state: ResMut<NextState<IngameState>>,
 ) {
     // ActiveInteractibleActions
-    let mut initial_active_interactibles =
-        vec![InteractibleAction::EnterBar, InteractibleAction::Customer];
+    let mut initial_active_interactibles = vec![InteractibleAction::Customer]; // Add InteractibleAction::Bar to reactivate click transitions
     initial_active_interactibles.append(&mut InteractibleAction::get_barrels());
     commands
         .spawn(ActiveInteractibleActions(initial_active_interactibles))
         .insert(OnIngameScreen);
     // IgnoredInteractibleActions
+    #[allow(unused_mut)]
     let mut initial_ignored_interactibles = vec![];
-    initial_ignored_interactibles.append(&mut InteractibleAction::get_barrels());
+    // initial_ignored_interactibles.append(&mut InteractibleAction::get_barrels());
     commands
         .spawn(IgnoredInteractibleActions(initial_ignored_interactibles))
         .insert(OnIngameScreen);
@@ -229,9 +307,7 @@ fn setup_ingame(
             ..Default::default()
         })
         .insert(OnIngameScreen)
-        .insert(Interactible {
-            action: InteractibleAction::ExitBar,
-        });
+        .insert(InteractibleBundle::new(InteractibleAction::ExitBar));
 
     // Set game state to Running to start systems
     ingame_state.set(IngameState::Running)
@@ -270,18 +346,26 @@ fn move_camera_system(
 }
 
 fn interactibles_system(
+    mut commands: Commands,
     windows_q: Query<&Window, With<PrimaryWindow>>,
-    mut camera_q: Query<
-        (&Camera, &GlobalTransform, &mut MoveCameraTo),
-        (With<MainCameraIngame>, Without<Interactible>),
+    camera_q: Query<
+        (&Camera, &GlobalTransform),
+        (With<MainCameraIngame>, Without<InteractibleAction>),
     >,
-    mut interactibles_q: Query<(&Transform, &mut Interactible, &Handle<Image>, &mut Sprite)>,
-    mut active_interactibles_q: Query<&mut ActiveInteractibleActions>,
-    mut ignored_interactibles_q: Query<&mut IgnoredInteractibleActions>,
+    mut interactibles_q: Query<(
+        Entity,
+        &Transform,
+        &InteractibleAction,
+        &Handle<Image>,
+        &mut Sprite,
+        &InteractionSpriteColors,
+    )>,
+    active_interactibles_q: Query<&ActiveInteractibleActions>,
+    ignored_interactibles_q: Query<&IgnoredInteractibleActions>,
     assets: Res<Assets<Image>>,
     buttons: Res<Input<MouseButton>>,
 ) {
-    let (camera, camera_global_transform, mut move_camera_to) = camera_q.single_mut();
+    let (camera, camera_global_transform) = camera_q.single();
 
     if let Some(cursor_world_position) = windows_q
         .single()
@@ -291,23 +375,25 @@ fn interactibles_system(
         // Cursor is inside the primary window, at 'world_position'
 
         // Active Interactibles
-        let mut active_interactibles = active_interactibles_q.single_mut();
-        let mut ignored_interactibles = ignored_interactibles_q.single_mut();
+        let active_interactibles = active_interactibles_q.single();
+        let ignored_interactibles = ignored_interactibles_q.single();
         // Sort interactibles by Z index to interact only with the higher one
         let mut interactibles = interactibles_q.iter_mut().collect::<Vec<_>>();
-        interactibles.sort_by(|a, b| b.0.translation.z.total_cmp(&a.0.translation.z));
+        interactibles.sort_by(|a, b| b.1.translation.z.total_cmp(&a.1.translation.z));
 
         let mut found_collision = false;
 
         for (
+            entity,
             interactible_transform,
-            mut interactible,
+            interactible_action,
             interactible_image_handle,
             mut interactible_sprite,
+            interaction_sprite_colors,
         ) in interactibles
         {
-            if ignored_interactibles.0.contains(&interactible.action) || found_collision {
-                interactible_sprite.color = Color::rgb(1., 1., 1.);
+            if found_collision || ignored_interactibles.0.contains(interactible_action) {
+                interactible_sprite.color = interaction_sprite_colors.normal;
                 continue;
             }
             // Calculate Interactible Size by the image.
@@ -317,7 +403,7 @@ fn interactibles_system(
 
             // Calculate interactible translation for collision
             let mut interacticle_translation = interactible_transform.translation;
-            if interactible.action == InteractibleAction::Customer {
+            if *interactible_action == InteractibleAction::Customer {
                 interacticle_translation.y =
                     interacticle_translation.y + scaled_image_dimension.y / 2.;
             }
@@ -330,84 +416,79 @@ fn interactibles_system(
             ) {
                 // Collision with mouse. Type Collision::Inside
                 // Set bool to ignore the other interactibles
-                found_collision = true;
+                if *interactible_action != InteractibleAction::Customer {
+                    found_collision = true;
+                }
 
-                if !active_interactibles.0.contains(&interactible.action) {
-                    interactible_sprite.color = Color::rgb(1., 1., 1.);
+                if !active_interactibles.0.contains(interactible_action) {
+                    interactible_sprite.color = interaction_sprite_colors.normal;
                     continue;
                 }
 
                 // Highlight
-                interactible_sprite.color = Color::rgb(1.3, 1.3, 1.3);
+                interactible_sprite.color = interaction_sprite_colors.highlight;
 
                 // Handle mouse click
                 if buttons.just_pressed(MouseButton::Left) {
                     // Left button was pressed
-                    handle_interactible_click(
-                        interactible.as_mut(),
-                        move_camera_to.as_mut(),
-                        active_interactibles.as_mut(),
-                        ignored_interactibles.as_mut(),
-                    );
+                    commands.entity(entity).insert(ClickedInteractible);
                 }
             } else {
                 // Reset Highlight
-                interactible_sprite.color = Color::rgb(1., 1., 1.);
+                interactible_sprite.color = interaction_sprite_colors.normal;
             }
         }
     } else {
         // Cursor is not in the game window.
         for (
+            _entity,
             _interactible_transform,
             _interactible,
             _interactible_image_handle,
             mut interactible_sprite,
+            interaction_sprite_colors,
         ) in interactibles_q.iter_mut()
         {
-            interactible_sprite.color = Color::rgb(1., 1., 1.);
+            interactible_sprite.color = interaction_sprite_colors.normal;
         }
     }
 }
 
-fn handle_interactible_click(
-    interactible: &mut Interactible,
-    move_camera_to: &mut MoveCameraTo,
-    active_interactibles: &mut ActiveInteractibleActions,
-    ignored_interactibles: &mut IgnoredInteractibleActions,
+fn handle_keys(
+    keys: ResMut<Input<KeyCode>>,
+    mut move_camera_to_q: Query<
+        &mut MoveCameraTo,
+        (With<MainCameraIngame>, Without<InteractibleAction>),
+    >,
+    mut camera_position: ResMut<CameraPosition>,
 ) {
-    match interactible.action {
-        InteractibleAction::EnterBar => {
-            move_camera_to.0 = Some(Vec2::new(0., -630.)); // -275. = One shelf height | -630. = Two shelf height
+    let mut move_camera_to = move_camera_to_q.single_mut();
 
-            // Deactivate EnterBar
-            remove_value_from_vec(InteractibleAction::EnterBar, &mut active_interactibles.0);
-            // Ignore Customer
-            ignored_interactibles.0.push(InteractibleAction::Customer);
-            // Stop ignoring Barrels
-            InteractibleAction::get_barrels()
-                .iter()
-                .for_each(|barrel| remove_value_from_vec(*barrel, &mut ignored_interactibles.0));
-            // Activate ExitBar
-            active_interactibles.0.push(InteractibleAction::ExitBar);
+    if keys.just_pressed(KeyCode::W) {
+        match *camera_position {
+            CameraPosition::Zero => {}
+            CameraPosition::OneShelf => {
+                move_camera_to.0 = Some(Vec2::new(0., 0.)); // -275. = One shelf height | -630. = Two shelf height
+                *camera_position = CameraPosition::Zero;
+            }
+            CameraPosition::TwoShelf => {
+                move_camera_to.0 = Some(Vec2::new(0., -275.)); // -275. = One shelf height | -630. = Two shelf height
+                *camera_position = CameraPosition::OneShelf;
+            }
         }
-        InteractibleAction::ExitBar => {
-            move_camera_to.0 = Some(Vec2::new(0., 0.));
-            // Deactivate ExitBar
-            remove_value_from_vec(InteractibleAction::ExitBar, &mut active_interactibles.0);
-            // Ignore Barrels
-            InteractibleAction::get_barrels()
-                .iter()
-                .for_each(|barrel| ignored_interactibles.0.push(*barrel));
-            // Stop ignoring Customer
-            remove_value_from_vec(InteractibleAction::Customer, &mut ignored_interactibles.0);
-            // Activate EnterBar
-            active_interactibles.0.push(InteractibleAction::EnterBar);
+    }
+    if keys.just_pressed(KeyCode::S) {
+        match *camera_position {
+            CameraPosition::Zero => {
+                move_camera_to.0 = Some(Vec2::new(0., -275.)); // -275. = One shelf height | -630. = Two shelf height
+                *camera_position = CameraPosition::OneShelf;
+            }
+            CameraPosition::OneShelf => {
+                move_camera_to.0 = Some(Vec2::new(0., -630.)); // -275. = One shelf height | -630. = Two shelf height
+                *camera_position = CameraPosition::TwoShelf;
+            }
+            CameraPosition::TwoShelf => {}
         }
-        InteractibleAction::Barrel(drink) => {
-            info!("Clicked Barrel: {:?}", drink);
-        }
-        InteractibleAction::Customer => {}
-        InteractibleAction::_None => {}
     }
 }
 

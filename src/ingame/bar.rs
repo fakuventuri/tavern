@@ -3,20 +3,26 @@ use std::time::Duration;
 use bevy::prelude::*;
 use rand::{seq::SliceRandom, Rng};
 
-use crate::{loading::TextureAssets, GameState, ScaleByAssetResolution};
+use crate::{loading::TextureAssets, remove_value_from_vec, GameState, ScaleByAssetResolution};
 
 use super::{
-    customer::{generate_random_customer, CustomerBundle},
-    IngameState, Interactible, InteractibleAction, OnIngameScreen,
+    customer::{generate_random_customer, Customer, CustomerBundle},
+    ActiveInteractibleActions, ClickedInteractible, CustomersStats, DrinkInHand,
+    IgnoredInteractibleActions, IngameState, InteractibleAction, InteractibleBundle,
+    MainCameraIngame, MoveCameraTo, OnIngameScreen,
 };
 
 // The bar counter
 pub struct BarPlugin;
 
-// Constants // y: -850.
-const BAR_CUSTOMER_SLOT_LEFT: Vec3 = Vec3::new(-700., -850., 3.);
-const BAR_CUSTOMER_SLOT_MIDDLE: Vec3 = Vec3::new(0., -850., 2.);
-const BAR_CUSTOMER_SLOT_RIGHT: Vec3 = Vec3::new(700., -850., 1.);
+// Constants
+/// The y position of the customer when they are at the bar
+pub const BAR_CUSTOMER_TARGET_Y: f32 = -850.; // y: -850.
+/// The y position of the customer when they not visible
+pub const BAR_CUSTOMER_HIDDEN_Y: f32 = -1400.;
+const SLOT_LEFT_SPAWN_POINT: Vec3 = Vec3::new(-700., BAR_CUSTOMER_HIDDEN_Y, 3.); // z = 3.
+const SLOT_MIDDLE_SPAWN_POINT: Vec3 = Vec3::new(0., BAR_CUSTOMER_HIDDEN_Y, 2.);
+const SLOT_RIGHT_SPAWN_POINT: Vec3 = Vec3::new(700., BAR_CUSTOMER_HIDDEN_Y, 1.);
 
 impl Plugin for BarPlugin {
     fn build(&self, app: &mut App) {
@@ -25,6 +31,7 @@ impl Plugin for BarPlugin {
             .add_systems(
                 Update,
                 (
+                    handle_bar_interactible_click.run_if(in_state(IngameState::Running)),
                     spawn_customers_in_slots.run_if(in_state(IngameState::Running)),
                     spawn_customer.run_if(in_state(IngameState::Running)),
                 ),
@@ -32,7 +39,7 @@ impl Plugin for BarPlugin {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Drink {
     Beer,
     Wine,
@@ -51,10 +58,26 @@ impl Drink {
 }
 
 #[derive(Component)]
-struct Bar {
+pub struct Bar {
     customer_slots: BarCustomerSlots,
     // customer_queue: Vec<CustomerBundle>,
     customer_spawn_timer: Timer,
+}
+
+impl Bar {
+    pub fn remove_customer(&mut self, slot_marker: &CustomerSlotMarker) {
+        match slot_marker {
+            CustomerSlotMarker::Left => {
+                self.customer_slots.left.spawned = false;
+            }
+            CustomerSlotMarker::Middle => {
+                self.customer_slots.middle.spawned = false;
+            }
+            CustomerSlotMarker::Right => {
+                self.customer_slots.right.spawned = false;
+            }
+        }
+    }
 }
 
 impl Default for Bar {
@@ -79,9 +102,7 @@ fn setup_bar(mut commands: Commands, textures: Res<TextureAssets>) {
             ..Default::default()
         })
         .insert(Bar::default())
-        .insert(Interactible {
-            action: InteractibleAction::EnterBar,
-        })
+        .insert(InteractibleBundle::new(InteractibleAction::Bar))
         .insert(OnIngameScreen);
 
     // Barrel Slots
@@ -96,9 +117,7 @@ fn setup_bar(mut commands: Commands, textures: Res<TextureAssets>) {
                 },
                 ..Default::default()
             })
-            .insert(Interactible {
-                action: InteractibleAction::Barrel(drink),
-            })
+            .insert(InteractibleBundle::new(InteractibleAction::Barrel(drink)))
             .insert(OnIngameScreen);
     }
 }
@@ -113,6 +132,13 @@ impl CustomerSlot {
     fn is_full(&self) -> bool {
         self.customer.is_some() || self.spawned
     }
+}
+
+#[derive(Component)]
+pub enum CustomerSlotMarker {
+    Left,
+    Middle,
+    Right,
 }
 
 #[derive(Default)]
@@ -136,7 +162,12 @@ impl BarCustomerSlots {
     }
 }
 
-fn spawn_customer(mut bar_q: Query<&mut Bar>, textures: Res<TextureAssets>, time: Res<Time>) {
+fn spawn_customer(
+    mut bar_q: Query<&mut Bar>,
+    textures: Res<TextureAssets>,
+    time: Res<Time>,
+    customers_stats: Res<CustomersStats>,
+) {
     let mut bar = bar_q.single_mut();
 
     if !bar.customer_slots.is_full() {
@@ -145,9 +176,10 @@ fn spawn_customer(mut bar_q: Query<&mut Bar>, textures: Res<TextureAssets>, time
                 slot.customer = Some(generate_random_customer(&textures));
             }
             bar.customer_spawn_timer.reset();
-            let rand_duration = rand::thread_rng().gen_range(2..5);
+            let rand_next_customer_time =
+                rand::thread_rng().gen_range(customers_stats.customers_spawn_gap.clone());
             bar.customer_spawn_timer
-                .set_duration(Duration::from_secs(rand_duration));
+                .set_duration(Duration::from_secs(rand_next_customer_time));
         }
     }
 }
@@ -157,20 +189,80 @@ fn spawn_customers_in_slots(mut commands: Commands, mut bar_q: Query<&mut Bar>) 
 
     if bar.customer_slots.left.customer.is_some() && !bar.customer_slots.left.spawned {
         let mut customer = bar.customer_slots.left.customer.take().unwrap();
-        customer.sprite_bundle.transform.translation = BAR_CUSTOMER_SLOT_LEFT;
-        commands.spawn(customer);
+        customer.sprite_bundle.transform.translation = SLOT_LEFT_SPAWN_POINT;
+        commands.spawn(customer).insert(CustomerSlotMarker::Left);
         bar.customer_slots.left.spawned = true;
     }
     if bar.customer_slots.middle.customer.is_some() && !bar.customer_slots.middle.spawned {
         let mut customer = bar.customer_slots.middle.customer.take().unwrap();
-        customer.sprite_bundle.transform.translation = BAR_CUSTOMER_SLOT_MIDDLE;
-        commands.spawn(customer);
+        customer.sprite_bundle.transform.translation = SLOT_MIDDLE_SPAWN_POINT;
+        commands.spawn(customer).insert(CustomerSlotMarker::Middle);
         bar.customer_slots.middle.spawned = true;
     }
     if bar.customer_slots.right.customer.is_some() && !bar.customer_slots.right.spawned {
         let mut customer = bar.customer_slots.right.customer.take().unwrap();
-        customer.sprite_bundle.transform.translation = BAR_CUSTOMER_SLOT_RIGHT;
-        commands.spawn(customer);
+        customer.sprite_bundle.transform.translation = SLOT_RIGHT_SPAWN_POINT;
+        commands.spawn(customer).insert(CustomerSlotMarker::Right);
         bar.customer_slots.right.spawned = true;
+    }
+}
+
+fn handle_bar_interactible_click(
+    //
+    mut commands: Commands,
+    mut move_camera_to_q: Query<
+        &mut MoveCameraTo,
+        (With<MainCameraIngame>, Without<InteractibleAction>),
+    >,
+    interactibles_q: Query<
+        (Entity, &InteractibleAction),
+        (With<ClickedInteractible>, Without<Customer>),
+    >,
+    mut active_interactibles_q: Query<&mut ActiveInteractibleActions>,
+    mut ignored_interactibles_q: Query<&mut IgnoredInteractibleActions>,
+    mut drink_in_hand: ResMut<DrinkInHand>,
+) {
+    let mut move_camera_to = move_camera_to_q.single_mut();
+    let mut active_interactibles = active_interactibles_q.single_mut();
+    let mut ignored_interactibles = ignored_interactibles_q.single_mut();
+
+    for (entity, interactible_action) in interactibles_q.iter() {
+        commands.entity(entity).remove::<ClickedInteractible>(); // Reset clicked
+        match *interactible_action {
+            InteractibleAction::Bar => {
+                move_camera_to.0 = Some(Vec2::new(0., -630.)); // -275. = One shelf height | -630. = Two shelf height
+
+                // Deactivate Bar
+                remove_value_from_vec(InteractibleAction::Bar, &mut active_interactibles.0);
+                // Ignore Customer
+                // ignored_interactibles.0.push(InteractibleAction::Customer);
+                // Stop ignoring Barrels
+                InteractibleAction::get_barrels().iter().for_each(|barrel| {
+                    remove_value_from_vec(*barrel, &mut ignored_interactibles.0)
+                });
+                // Activate ExitBar
+                active_interactibles.0.push(InteractibleAction::ExitBar);
+            }
+            InteractibleAction::ExitBar => {
+                move_camera_to.0 = Some(Vec2::new(0., 0.));
+                // Deactivate ExitBar
+                remove_value_from_vec(InteractibleAction::ExitBar, &mut active_interactibles.0);
+                // Ignore Barrels
+                InteractibleAction::get_barrels()
+                    .iter()
+                    .for_each(|barrel| ignored_interactibles.0.push(*barrel));
+                // Stop ignoring Customer
+                // remove_value_from_vec(InteractibleAction::Customer, &mut ignored_interactibles.0);
+                // Activate Bar
+                active_interactibles.0.push(InteractibleAction::Bar);
+            }
+            InteractibleAction::Barrel(drink) => {
+                drink_in_hand.0 = Some(drink);
+            }
+            InteractibleAction::Customer => {
+                unreachable!("Customers should be ignored in this query")
+            }
+            InteractibleAction::_None => {}
+        }
     }
 }

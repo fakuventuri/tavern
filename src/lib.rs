@@ -68,7 +68,7 @@ impl Plugin for GamePlugin {
         {
             // add debug_exit_with_ctrl_w system to debug mode
             app.add_systems(Update, debug_exit_with_ctrl_w);
-            // app.add_plugins((FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin::default()));
+            app.add_plugins((FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin::default()));
         }
     }
 }
@@ -135,6 +135,7 @@ pub fn remove_value_from_vec<T: PartialEq>(value_to_remove: T, vec: &mut Vec<T>)
 pub enum ScaleByAssetResolution {
     Res1080p,
     Res720p,
+    Custom(Vec2),
 }
 
 impl ScaleByAssetResolution {
@@ -142,6 +143,9 @@ impl ScaleByAssetResolution {
         match self {
             ScaleByAssetResolution::Res1080p => Vec3::new(1.0, 1.0, 0.0),
             ScaleByAssetResolution::Res720p => Vec3::new(1.5, 1.5, 0.0),
+            ScaleByAssetResolution::Custom(resolution) => {
+                Vec3::new(1920. / resolution.x, 1080. / resolution.y, 0.)
+            }
         }
     }
 }

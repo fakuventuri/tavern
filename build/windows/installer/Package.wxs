@@ -4,7 +4,7 @@
         Name="Tavern"
         Manufacturer="Facundo Venturi"
         UpgradeCode="3864c356-4d67-4653-9196-04f3e7b7f5e2"
-        Version="0.5.1"
+        Version="0.6.1"
 
         Scope="perUserOrMachine">
         <MajorUpgrade DowngradeErrorMessage="!(loc.DowngradeError)" />
