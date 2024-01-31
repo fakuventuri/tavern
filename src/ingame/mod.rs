@@ -15,7 +15,7 @@ use self::pause_menu::{handle_button, settings_pause_setup, setup_pause_menu, On
 
 pub struct IngamePlugin;
 
-const CAMERA_SPEED: f32 = 800.;
+const CAMERA_SPEED: f32 = 900.;
 
 #[derive(Component)]
 pub struct OnIngameScreen;
