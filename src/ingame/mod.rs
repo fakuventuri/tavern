@@ -4,6 +4,7 @@ mod pause_menu;
 use crate::loading::TextureAssets;
 use crate::menu::settings::{setting_button_handle, settings_button_colors, OnSettingsMenuScreen};
 use crate::{despawn_screen, GameState, ScaleByAssetResolution, ScreenMode};
+use bevy::input::mouse::MouseWheel;
 use bevy::prelude::*;
 use bevy::sprite::collide_aabb::collide;
 use bevy::window::{CursorGrabMode, PrimaryWindow};
@@ -94,6 +95,7 @@ struct IgnoredInteractibleActions(Vec<InteractibleAction>);
 struct DrinkInHand(Option<Drink>);
 
 #[derive(Resource)]
+#[allow(dead_code)]
 struct PlayerStats {
     pub money: u32,
     pub reputation: u32,              // level
@@ -456,6 +458,7 @@ fn interactibles_system(
 
 fn keys_camera_control(
     keys: ResMut<Input<KeyCode>>,
+    mut scroll_evr: EventReader<MouseWheel>,
     mut move_camera_to_q: Query<
         &mut MoveCameraTo,
         (With<MainCameraIngame>, Without<InteractibleAction>),
@@ -488,6 +491,34 @@ fn keys_camera_control(
                 *camera_position = CameraPosition::TwoShelf;
             }
             CameraPosition::TwoShelf => {}
+        }
+    }
+
+    if let Some(scroll) = scroll_evr.read().last() {
+        if scroll.y < 0. {
+            match *camera_position {
+                CameraPosition::Zero => {
+                    move_camera_to.0 = Some(Vec2::new(0., -275.)); // -275. = One shelf height | -630. = Two shelf height
+                    *camera_position = CameraPosition::OneShelf;
+                }
+                CameraPosition::OneShelf => {
+                    move_camera_to.0 = Some(Vec2::new(0., -630.)); // -275. = One shelf height | -630. = Two shelf height
+                    *camera_position = CameraPosition::TwoShelf;
+                }
+                CameraPosition::TwoShelf => {}
+            }
+        } else if scroll.y > 0. {
+            match *camera_position {
+                CameraPosition::Zero => {}
+                CameraPosition::OneShelf => {
+                    move_camera_to.0 = Some(Vec2::new(0., 0.)); // -275. = One shelf height | -630. = Two shelf height
+                    *camera_position = CameraPosition::Zero;
+                }
+                CameraPosition::TwoShelf => {
+                    move_camera_to.0 = Some(Vec2::new(0., -275.)); // -275. = One shelf height | -630. = Two shelf height
+                    *camera_position = CameraPosition::OneShelf;
+                }
+            }
         }
     }
 }
