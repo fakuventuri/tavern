@@ -145,7 +145,7 @@ impl Plugin for IngamePlugin {
                 Update,
                 (
                     handle_esc.run_if(in_state(GameState::Playing)),
-                    handle_keys.run_if(in_state(GameState::Playing)),
+                    keys_camera_control.run_if(in_state(GameState::Playing)),
                 ),
             )
             .add_systems(OnExit(GameState::Playing), despawn_screen::<OnIngameScreen>)
@@ -454,7 +454,7 @@ fn interactibles_system(
     }
 }
 
-fn handle_keys(
+fn keys_camera_control(
     keys: ResMut<Input<KeyCode>>,
     mut move_camera_to_q: Query<
         &mut MoveCameraTo,
@@ -464,7 +464,7 @@ fn handle_keys(
 ) {
     let mut move_camera_to = move_camera_to_q.single_mut();
 
-    if keys.just_pressed(KeyCode::W) {
+    if keys.just_pressed(KeyCode::W) || keys.just_pressed(KeyCode::Up) {
         match *camera_position {
             CameraPosition::Zero => {}
             CameraPosition::OneShelf => {
@@ -477,7 +477,7 @@ fn handle_keys(
             }
         }
     }
-    if keys.just_pressed(KeyCode::S) {
+    if keys.just_pressed(KeyCode::S) || keys.just_pressed(KeyCode::Down) {
         match *camera_position {
             CameraPosition::Zero => {
                 move_camera_to.0 = Some(Vec2::new(0., -275.)); // -275. = One shelf height | -630. = Two shelf height
