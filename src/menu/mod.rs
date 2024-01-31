@@ -1,7 +1,9 @@
 pub mod settings;
 
 use crate::loading::TextureAssets;
-use crate::{despawn_screen, exit_game_system, GameState, ScreenMode};
+use crate::{
+    despawn_screen, exit_game_system, GameState, ScreenMode, MENU_BACKGROUND_COLOR, TEXT_COLOR,
+};
 use bevy::prelude::*;
 use bevy::text::TextSettings;
 use bevy::time::Stopwatch;
@@ -48,6 +50,7 @@ impl Plugin for MenuPlugin {
                     on_resize, //.run_if(in_state(GameState::Menu)),
                     // handle_buttons.run_if(in_state(MenuState::Main)),
                     esc_to_quit.run_if(in_state(MenuState::Main)),
+                    space_to_play.run_if(in_state(MenuState::Main)),
                 ),
             )
             .add_systems(OnExit(MenuState::Main), despawn_screen::<OnMainMenuScreen>)
@@ -93,7 +96,7 @@ fn setup_camera(mut commands: Commands) {
         min_height: 1080.,
     };
     camera_bundle.camera_2d.clear_color =
-        bevy::core_pipeline::clear_color::ClearColorConfig::Custom(Color::rgb(0.05, 0.05, 0.05));
+        bevy::core_pipeline::clear_color::ClearColorConfig::Custom(MENU_BACKGROUND_COLOR);
 
     commands.spawn(camera_bundle).insert(MainCameraMenu);
 }
@@ -125,18 +128,17 @@ fn setup_main_menu(mut commands: Commands, textures: Res<TextureAssets>) {
                     justify_content: JustifyContent::FlexEnd,
                     ..Default::default()
                 },
-                // background_color: BackgroundColor(Color::RED),
                 ..Default::default()
             },
             OnMainMenuScreen,
         ))
-        .with_children(|parent| {
-            parent.spawn(
+        .with_children(|child_builder| {
+            child_builder.spawn(
                 TextBundle::from_section(
                     "Tavern",
                     TextStyle {
                         font_size: 120.,
-                        color: Color::rgb(0.9, 0.9, 0.9),
+                        color: TEXT_COLOR,
                         ..Default::default()
                     },
                 ), // .with_text_alignment(TextAlignment::Center)
@@ -166,17 +168,11 @@ fn setup_main_menu(mut commands: Commands, textures: Res<TextureAssets>) {
                     padding: UiRect::vertical(Val::Vh(10.)),
                     ..Default::default()
                 },
-                // background_color: BackgroundColor(Color::Rgba {
-                //     red: 0.5,
-                //     green: 0.5,
-                //     blue: 0.5,
-                //     alpha: 0.5,
-                // }),
                 ..Default::default()
             },
             OnMainMenuScreen,
         ))
-        .with_children(|parent| {
+        .with_children(|child_builder| {
             let button_style = Style {
                 width: Val::Px(300.0),
                 // height: Val::Px(50.0),
@@ -188,58 +184,62 @@ fn setup_main_menu(mut commands: Commands, textures: Res<TextureAssets>) {
             };
             let button_text_style = TextStyle {
                 font_size: 50.0,
-                color: Color::rgb(0.9, 0.9, 0.9),
+                color: TEXT_COLOR,
                 ..Default::default()
             };
 
-            menu_button(
-                parent,
-                "Continue",
-                MenuButtonAction::Continue,
-                &button_style,
-                &ButtonColors {
-                    hovered: Color::rgb(0.4, 0.4, 0.4),
-                    normal: Color::rgb(0.4, 0.4, 0.4),
-                },
-                &TextStyle {
-                    font_size: 50.0,
-                    color: Color::rgb(0.6, 0.6, 0.6),
-                    ..Default::default()
-                },
-            );
-
-            menu_button(
-                parent,
-                "New Game",
-                MenuButtonAction::Play,
-                &button_style,
-                &ButtonColors {
-                    hovered: Color::rgb(0.3, 0.4, 0.4),
-                    ..Default::default()
-                },
-                &button_text_style,
-            );
-
-            menu_button(
-                parent,
-                "Settings",
-                MenuButtonAction::Settings,
-                &button_style,
-                &ButtonColors::default(),
-                &button_text_style,
-            );
-
-            menu_button(
-                parent,
-                "Quit",
-                MenuButtonAction::Quit(false),
-                &button_style,
-                &ButtonColors {
-                    hovered: Color::rgb(0.5, 0.2, 0.2),
-                    ..Default::default()
-                },
-                &button_text_style,
-            );
+            for (text, action, b_style, button_colors, button_text_style) in [
+                (
+                    "Continue",
+                    MenuButtonAction::Continue,
+                    &button_style,
+                    &ButtonColors {
+                        hovered: Color::rgb(0.4, 0.4, 0.4),
+                        normal: Color::rgb(0.4, 0.4, 0.4),
+                    },
+                    &TextStyle {
+                        font_size: 50.0,
+                        color: Color::rgb(0.6, 0.6, 0.6),
+                        ..Default::default()
+                    },
+                ),
+                (
+                    "New Game",
+                    MenuButtonAction::Play,
+                    &button_style,
+                    &ButtonColors {
+                        hovered: Color::rgb(0.3, 0.4, 0.4),
+                        ..Default::default()
+                    },
+                    &button_text_style,
+                ),
+                (
+                    "Settings",
+                    MenuButtonAction::Settings,
+                    &button_style,
+                    &ButtonColors::default(),
+                    &button_text_style,
+                ),
+                (
+                    "Quit",
+                    MenuButtonAction::Quit(false),
+                    &button_style,
+                    &ButtonColors {
+                        hovered: Color::rgb(0.5, 0.2, 0.2),
+                        ..Default::default()
+                    },
+                    &button_text_style,
+                ),
+            ] {
+                menu_button(
+                    child_builder,
+                    text,
+                    action,
+                    b_style,
+                    button_colors,
+                    button_text_style,
+                );
+            }
         });
 
     commands
@@ -258,8 +258,8 @@ fn setup_main_menu(mut commands: Commands, textures: Res<TextureAssets>) {
             },
             OnMainMenuScreen,
         ))
-        .with_children(|parent| {
-            parent
+        .with_children(|child_builder| {
+            child_builder
                 .spawn((
                     ButtonBundle {
                         style: Style {
@@ -280,16 +280,16 @@ fn setup_main_menu(mut commands: Commands, textures: Res<TextureAssets>) {
                     },
                     OpenLink("https://bevyengine.org"),
                 ))
-                .with_children(|parent| {
-                    parent.spawn(TextBundle::from_section(
+                .with_children(|child_builder| {
+                    child_builder.spawn(TextBundle::from_section(
                         "Made with Bevy",
                         TextStyle {
                             font_size: 25.0,
-                            color: Color::rgb(0.9, 0.9, 0.9),
+                            color: TEXT_COLOR,
                             ..Default::default()
                         },
                     ));
-                    parent.spawn(ImageBundle {
+                    child_builder.spawn(ImageBundle {
                         image: textures.bevy.clone().into(),
                         style: Style {
                             height: Val::VMin(6.),
@@ -321,20 +321,20 @@ fn setup_main_menu(mut commands: Commands, textures: Res<TextureAssets>) {
                     red: 0.,
                     green: 0.,
                     blue: 0.,
-                    alpha: 0.75,
+                    alpha: 0.8,
                 }),
                 visibility: Visibility::Hidden,
                 ..Default::default()
             },
-            Popup,
+            ExitPopup,
             OnMainMenuScreen,
         ))
-        .with_children(|parent| {
-            parent.spawn(TextBundle::from_section(
+        .with_children(|child_builder| {
+            child_builder.spawn(TextBundle::from_section(
                 "ESC again to exit game",
                 TextStyle {
                     font_size: 40.,
-                    color: Color::rgb(0.9, 0.9, 0.9),
+                    color: TEXT_COLOR,
                     ..Default::default()
                 },
             ));
@@ -342,14 +342,14 @@ fn setup_main_menu(mut commands: Commands, textures: Res<TextureAssets>) {
 }
 
 pub fn menu_button<T: Component>(
-    parent: &mut ChildBuilder<'_, '_, '_>,
+    child_builder: &mut ChildBuilder<'_, '_, '_>,
     text: &str,
     action: T,
     button_style: &Style,
     button_colors: &ButtonColors,
     button_text_style: &TextStyle,
 ) {
-    parent
+    child_builder
         .spawn((
             ButtonBundle {
                 style: button_style.clone(),
@@ -359,8 +359,8 @@ pub fn menu_button<T: Component>(
             *button_colors,
             action,
         ))
-        .with_children(|parent| {
-            parent.spawn(
+        .with_children(|child_builder| {
+            child_builder.spawn(
                 TextBundle::from_section(text, button_text_style.clone())
                     .with_text_alignment(TextAlignment::Center)
                     .with_no_wrap(),
@@ -434,6 +434,17 @@ fn handle_buttons(
     }
 }
 
+fn space_to_play(
+    keys: Res<Input<KeyCode>>,
+    mut game_state: ResMut<NextState<GameState>>,
+    mut menu_state: ResMut<NextState<MenuState>>,
+) {
+    if keys.just_pressed(KeyCode::Space) {
+        game_state.set(GameState::Playing);
+        menu_state.set(MenuState::Disabled);
+    }
+}
+
 #[derive(Component)]
 struct QuitEscTime {
     time: Option<Stopwatch>,
@@ -450,7 +461,7 @@ fn esc_to_quit(
     mut quit_esc_time_query: Query<&mut QuitEscTime>,
     time: Res<Time>,
     mut menu_state: ResMut<NextState<MenuState>>,
-    mut query_popup_visibility: Query<&mut Visibility, With<Popup>>,
+    mut query_popup_visibility: Query<&mut Visibility, With<ExitPopup>>,
 ) {
     let mut quit_esc_time = quit_esc_time_query.single_mut();
     if keys.just_pressed(KeyCode::Escape) {
@@ -475,7 +486,7 @@ fn esc_to_quit(
 }
 
 #[derive(Component)]
-struct Popup;
+struct ExitPopup;
 
 fn on_resize(mut resize_reader: EventReader<WindowResized>, mut ui_scale: ResMut<UiScale>) {
     // // Window size

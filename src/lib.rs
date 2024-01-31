@@ -6,8 +6,6 @@ mod audio;
 mod ingame;
 mod loading;
 mod menu;
-// #[allow(dead_code, unused)]
-// mod player;
 
 // use crate::actions::ActionsPlugin;
 use crate::audio::InternalAudioPlugin;
@@ -16,9 +14,14 @@ use crate::loading::LoadingPlugin;
 use crate::menu::MenuPlugin;
 
 use bevy::app::{App, AppExit};
+#[allow(unused_imports)]
 #[cfg(debug_assertions)]
 use bevy::diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin};
 use bevy::prelude::*;
+
+// Constants
+pub const TEXT_COLOR: Color = Color::rgb(0.9, 0.9, 0.9);
+pub const MENU_BACKGROUND_COLOR: Color = Color::rgb(0.05, 0.05, 0.05);
 
 // This example game uses States to separate logic
 // See https://bevy-cheatbook.github.io/programming/states.html
@@ -63,8 +66,19 @@ impl Plugin for GamePlugin {
 
         #[cfg(debug_assertions)]
         {
+            // add debug_exit_with_ctrl_w system to debug mode
+            app.add_systems(Update, debug_exit_with_ctrl_w);
             app.add_plugins((FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin::default()));
         }
+    }
+}
+
+fn debug_exit_with_ctrl_w(
+    keyboard_input: Res<Input<KeyCode>>,
+    mut app_exit_events: EventWriter<AppExit>,
+) {
+    if keyboard_input.pressed(KeyCode::ControlLeft) && keyboard_input.just_pressed(KeyCode::W) {
+        app_exit_events.send(AppExit);
     }
 }
 
@@ -72,8 +86,8 @@ fn set_screen_mode_with_keys(
     keyboard_input: Res<Input<KeyCode>>,
     mut screen_mode: ResMut<ScreenMode>,
 ) {
-    if keyboard_input.pressed(KeyCode::AltLeft)
-        && (keyboard_input.just_pressed(KeyCode::Return) || keyboard_input.just_pressed(KeyCode::F))
+    if (keyboard_input.pressed(KeyCode::AltLeft) && keyboard_input.just_pressed(KeyCode::Return))
+        || keyboard_input.just_pressed(KeyCode::F)
     {
         match *screen_mode {
             ScreenMode::Windowed => {
@@ -116,4 +130,22 @@ pub fn remove_value_from_vec<T: PartialEq>(value_to_remove: T, vec: &mut Vec<T>)
             .position(|x| *x == value_to_remove)
             .expect("InteractibleAction to remove is not active."),
     );
+}
+
+pub enum ScaleByAssetResolution {
+    Res1080p,
+    Res720p,
+    Custom(Vec2),
+}
+
+impl ScaleByAssetResolution {
+    pub fn scale(&self) -> Vec3 {
+        match self {
+            ScaleByAssetResolution::Res1080p => Vec3::new(1.0, 1.0, 0.0),
+            ScaleByAssetResolution::Res720p => Vec3::new(1.5, 1.5, 0.0),
+            ScaleByAssetResolution::Custom(resolution) => {
+                Vec3::new(1920. / resolution.x, 1080. / resolution.y, 0.)
+            }
+        }
+    }
 }
