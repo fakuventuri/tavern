@@ -3,7 +3,7 @@ mod customer;
 mod pause_menu;
 use crate::loading::TextureAssets;
 use crate::menu::settings::{setting_button_handle, settings_button_colors, OnSettingsMenuScreen};
-use crate::{despawn_screen, GameState, ScaleByAssetResolution, ScreenMode};
+use crate::{despawn_screen, GameState, ScaleByAssetResolution, ScreenMode, CAMERA_RESOLUTION};
 use bevy::input::mouse::MouseWheel;
 use bevy::prelude::*;
 use bevy::sprite::collide_aabb::collide;
@@ -15,7 +15,7 @@ use self::pause_menu::{handle_button, settings_pause_setup, setup_pause_menu, On
 
 pub struct IngamePlugin;
 
-const CAMERA_SPEED: f32 = 900.;
+const CAMERA_MOVEMENT_SPEED: f32 = 900.;
 
 #[derive(Component)]
 pub struct OnIngameScreen;
@@ -130,15 +130,17 @@ struct CustomersStats {
 
 #[derive(Resource)]
 enum CameraPosition {
-    Zero,
+    // Zero,
     OneShelf,
     TwoShelf,
 }
 
 impl CameraPosition {
+    const STARTING_TRANSLATION: Vec3 = Vec3::new(0., -362., 0.);
+
     fn down(&mut self) {
         *self = match *self {
-            CameraPosition::Zero => CameraPosition::OneShelf,
+            // CameraPosition::Zero => CameraPosition::OneShelf,
             CameraPosition::OneShelf => CameraPosition::TwoShelf,
             CameraPosition::TwoShelf => CameraPosition::TwoShelf,
         }
@@ -146,17 +148,17 @@ impl CameraPosition {
 
     fn up(&mut self) {
         *self = match *self {
-            CameraPosition::Zero => CameraPosition::Zero,
-            CameraPosition::OneShelf => CameraPosition::Zero,
+            // CameraPosition::Zero => CameraPosition::Zero,
+            CameraPosition::OneShelf => CameraPosition::OneShelf,
             CameraPosition::TwoShelf => CameraPosition::OneShelf,
         }
     }
 
     fn to_vec2(&self) -> Vec2 {
         match *self {
-            CameraPosition::Zero => Vec2::new(0., 0.),
-            CameraPosition::OneShelf => Vec2::new(0., -275.),
-            CameraPosition::TwoShelf => Vec2::new(0., -630.),
+            // CameraPosition::Zero => Vec2::new(0., 0.),
+            CameraPosition::OneShelf => Vec2::new(0., -362.),
+            CameraPosition::TwoShelf => Vec2::new(0., -717.),
         }
     }
 }
@@ -179,7 +181,7 @@ impl Plugin for IngamePlugin {
                 customers_wait_duration: 3.,
                 customers_spawn_gap: 0..3,
             })
-            .insert_resource(CameraPosition::Zero)
+            .insert_resource(CameraPosition::OneShelf)
             .add_plugins(BarPlugin)
             .add_plugins(CustomerPlugin)
             // GameState::Playing // starts with IngameState::Disabled
@@ -233,86 +235,62 @@ pub struct MainCameraIngame;
 struct MoveCameraTo(Option<Vec2>);
 
 #[derive(Component)]
-struct CameraBound(Vec2);
+enum CameraBound {
+    Top,
+    Bottom,
+    Left,
+    Right,
+}
+
+impl CameraBound {
+    fn get_offset(&self) -> Vec3 {
+        match self {
+            CameraBound::Top => Vec3::new(0., CAMERA_RESOLUTION.y, 999.),
+            CameraBound::Bottom => Vec3::new(0., -CAMERA_RESOLUTION.y, 999.),
+            CameraBound::Left => Vec3::new(-CAMERA_RESOLUTION.x, 0., 999.),
+            CameraBound::Right => Vec3::new(CAMERA_RESOLUTION.x, 0., 999.),
+        }
+    }
+}
 
 fn setup_camera(mut commands: Commands) {
     // CameraBounds Black Sprites out of screen to hide sprites out of window in weird resolutions.
     // ToDo look for a better solution
-    // Bottom of the Screen
-    commands
-        .spawn(SpriteBundle {
-            transform: Transform {
-                translation: Vec3::new(0., -1080., 999.),
-                scale: Vec3::new(1920., 1080., 0.0),
+    for camera_bound in vec![
+        CameraBound::Top,
+        CameraBound::Bottom,
+        CameraBound::Left,
+        CameraBound::Right,
+    ] {
+        commands
+            .spawn(SpriteBundle {
+                transform: Transform {
+                    translation: CameraPosition::STARTING_TRANSLATION + camera_bound.get_offset(),
+                    scale: Vec3::new(CAMERA_RESOLUTION.x, CAMERA_RESOLUTION.y, 0.0),
+                    ..Default::default()
+                },
+                sprite: Sprite {
+                    color: Color::rgb(0., 0., 0.),
+                    ..default()
+                },
                 ..Default::default()
-            },
-            sprite: Sprite {
-                color: Color::rgb(0., 0., 0.),
-                ..default()
-            },
-            ..Default::default()
-        })
-        .insert(CameraBound(Vec2::new(0., -1080.)))
-        .insert(OnIngameScreen);
-    // Top of the Screen
-    commands
-        .spawn(SpriteBundle {
-            transform: Transform {
-                translation: Vec3::new(0., 1080., 999.),
-                scale: Vec3::new(1920., 1080., 0.0),
-                ..Default::default()
-            },
-            sprite: Sprite {
-                color: Color::rgb(0., 0., 0.),
-                ..default()
-            },
-            ..Default::default()
-        })
-        .insert(CameraBound(Vec2::new(0., 1080.)))
-        .insert(OnIngameScreen);
-    // Left of the Screen
-    commands
-        .spawn(SpriteBundle {
-            transform: Transform {
-                translation: Vec3::new(-1920., 0., 999.),
-                scale: Vec3::new(1920., 1080., 0.0),
-                ..Default::default()
-            },
-            sprite: Sprite {
-                color: Color::rgb(0., 0., 0.),
-                ..default()
-            },
-            ..Default::default()
-        })
-        .insert(CameraBound(Vec2::new(-1920., 0.)))
-        .insert(OnIngameScreen);
-    // Right of the Screen
-    commands
-        .spawn(SpriteBundle {
-            transform: Transform {
-                translation: Vec3::new(1920., 0., 999.),
-                scale: Vec3::new(1920., 1080., 0.0),
-                ..Default::default()
-            },
-            sprite: Sprite {
-                color: Color::rgb(0., 0., 0.),
-                ..default()
-            },
-            ..Default::default()
-        })
-        .insert(CameraBound(Vec2::new(1920., 0.)))
-        .insert(OnIngameScreen);
+            })
+            .insert(camera_bound)
+            .insert(OnIngameScreen);
+    }
 
     // Camera
     let mut camera_bundle = Camera2dBundle::default();
 
     camera_bundle.projection.scaling_mode = bevy::render::camera::ScalingMode::AutoMin {
-        min_width: 1920.,
-        min_height: 1080.,
+        min_width: CAMERA_RESOLUTION.x,
+        min_height: CAMERA_RESOLUTION.y,
     };
     // camera_bundle.camera_2d.clear_color =
     //     bevy::core_pipeline::clear_color::ClearColorConfig::Custom(Color::rgb(0.5, 0.5, 0.5));
     // camera_bundle.camera.hdr = true; // Weir behabior (like a weird effect) with Rgba with high alpha values
+
+    camera_bundle.transform.translation = CameraPosition::STARTING_TRANSLATION;
 
     commands
         .spawn(camera_bundle)
@@ -469,7 +447,7 @@ fn move_camera_system(
         let current_position = camera_transform.translation;
         if current_position.distance(target) > 10. {
             camera_transform.translation += (target - current_position).normalize_or_zero()
-                * CAMERA_SPEED
+                * CAMERA_MOVEMENT_SPEED
                 * time.delta_seconds();
         } else {
             camera_transform.translation.x = target.x;
@@ -480,7 +458,7 @@ fn move_camera_system(
         // Adjust CameraBounds
         for (mut bound_transform, bound) in bounds_q.iter_mut() {
             bound_transform.translation =
-                (bound.0 + camera_transform.translation.truncate()).extend(999.);
+                bound.get_offset() + camera_transform.translation.truncate().extend(0.);
         }
     }
 }
