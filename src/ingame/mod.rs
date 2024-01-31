@@ -169,7 +169,7 @@ impl Plugin for IngamePlugin {
             )
             .add_systems(OnExit(GameState::Playing), despawn_screen::<OnIngameScreen>)
             // IngameState::Running
-            .add_systems(OnEnter(IngameState::Running), cursor_grab)
+            // .add_systems(OnEnter(IngameState::Running), cursor_grab) // Mouse bug in web
             .add_systems(
                 Update,
                 (
@@ -177,7 +177,7 @@ impl Plugin for IngamePlugin {
                     move_camera_system.run_if(in_state(IngameState::Running)),
                 ),
             )
-            .add_systems(OnExit(IngameState::Running), cursor_ungrab)
+            // .add_systems(OnExit(IngameState::Running), cursor_ungrab) // Mouse bug in web
             // IngameState::Paused
             .add_systems(OnEnter(IngameState::Paused), setup_pause_menu)
             .add_systems(Update, handle_button.run_if(in_state(IngameState::Paused)))
@@ -709,7 +709,7 @@ fn handle_esc(
         }
     }
 }
-
+#[allow(dead_code)]
 /// Grab Cursor to prevent it from leaving the window
 fn cursor_grab(mut q_windows: Query<&mut Window, With<PrimaryWindow>>) {
     let mut primary_window = q_windows.single_mut();
@@ -718,6 +718,7 @@ fn cursor_grab(mut q_windows: Query<&mut Window, With<PrimaryWindow>>) {
     primary_window.cursor.grab_mode = CursorGrabMode::Confined;
 }
 
+#[allow(dead_code)]
 /// Release Cursor
 fn cursor_ungrab(mut q_windows: Query<&mut Window, With<PrimaryWindow>>) {
     let mut primary_window = q_windows.single_mut();
