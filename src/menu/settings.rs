@@ -185,12 +185,10 @@ pub fn setting_button_handle<T: Resource + Component + PartialEq + Copy>(
             commands.entity(previous_button).remove::<SelectedOption>();
             commands.entity(entity).insert(SelectedOption);
             *setting = *button_setting;
-        } else if *setting == *button_setting {
-            if previous_button != entity {
-                *previous_color = NORMAL_BUTTON.into();
-                commands.entity(previous_button).remove::<SelectedOption>();
-                commands.entity(entity).insert(SelectedOption);
-            }
+        } else if *setting == *button_setting && previous_button != entity {
+            *previous_color = NORMAL_BUTTON.into();
+            commands.entity(previous_button).remove::<SelectedOption>();
+            commands.entity(entity).insert(SelectedOption);
         }
     }
 }

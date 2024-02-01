@@ -216,17 +216,16 @@ fn spawn_customer(
 ) {
     let mut bar = bar_q.single_mut();
 
-    if !bar.customer_slots.is_full() {
-        if bar.customer_spawn_timer.tick(time.delta()).just_finished() {
-            if let Some(slot) = bar.customer_slots.get_random_empty_slot() {
-                slot.customer = Some(generate_random_customer(&textures));
-            }
-            bar.customer_spawn_timer.reset();
-            let rand_next_customer_time =
-                rand::thread_rng().gen_range(customers_stats.customers_spawn_gap.clone());
-            bar.customer_spawn_timer
-                .set_duration(Duration::from_secs(rand_next_customer_time));
+    if !bar.customer_slots.is_full() && bar.customer_spawn_timer.tick(time.delta()).just_finished()
+    {
+        if let Some(slot) = bar.customer_slots.get_random_empty_slot() {
+            slot.customer = Some(generate_random_customer(&textures));
         }
+        bar.customer_spawn_timer.reset();
+        let rand_next_customer_time =
+            rand::thread_rng().gen_range(customers_stats.customers_spawn_gap.clone());
+        bar.customer_spawn_timer
+            .set_duration(Duration::from_secs(rand_next_customer_time));
     }
 }
 

@@ -103,7 +103,7 @@ impl CustomerBundle {
                 drink,
             },
             sprite_bundle: SpriteBundle {
-                texture: texture,
+                texture,
                 transform,
                 sprite: Sprite {
                     anchor: bevy::sprite::Anchor::BottomCenter, // Ruins interaction_handle
@@ -292,7 +292,7 @@ fn handle_order_popup(
 
 pub fn generate_random_customer(textures: &Res<TextureAssets>) -> CustomerBundle {
     let mut rng = rand::thread_rng();
-    let name = format!("{}", CUSTOMER_NAMES.choose(&mut rng).unwrap_or(&"John"),);
+    let name = CUSTOMER_NAMES.choose(&mut rng).unwrap_or(&"John");
     let drink = Drink::iterator().choose(&mut rng).unwrap().0;
     let texture = CustomerAssets::iterator()
         .choose(&mut rng)
@@ -304,7 +304,7 @@ pub fn generate_random_customer(textures: &Res<TextureAssets>) -> CustomerBundle
         ..Default::default()
     };
 
-    CustomerBundle::new(&name, drink, texture, transform)
+    CustomerBundle::new(name, drink, texture, transform)
 }
 
 pub const CUSTOMER_NAMES: [&str; 10] = [

@@ -266,7 +266,7 @@ impl CameraBound {
 fn setup_camera(mut commands: Commands) {
     // CameraBounds Black Sprites out of screen to hide sprites out of window in weird resolutions.
     // ToDo look for a better solution
-    for camera_bound in vec![
+    for camera_bound in [
         CameraBound::Top,
         CameraBound::Bottom,
         CameraBound::Left,
@@ -473,6 +473,7 @@ fn move_camera_system(
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn interactibles_system(
     mut commands: Commands,
     windows_q: Query<&Window, With<PrimaryWindow>>,
@@ -532,8 +533,7 @@ fn interactibles_system(
             // Calculate interactible translation for collision
             let mut interacticle_translation = interactible_transform.translation;
             if *interactible_action == InteractibleAction::Customer {
-                interacticle_translation.y =
-                    interacticle_translation.y + scaled_image_dimension.y / 2.;
+                interacticle_translation.y += scaled_image_dimension.y / 2.;
             }
 
             if let Some(_collision) = collide(
