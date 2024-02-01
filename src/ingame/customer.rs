@@ -1,5 +1,4 @@
 use bevy::prelude::*;
-use inline_tweak::tweak;
 use rand::seq::{IteratorRandom, SliceRandom};
 
 use crate::{loading::TextureAssets, ScaleByAssetResolution};
@@ -61,7 +60,7 @@ impl OrderPopupBundle {
                     alignment: TextAlignment::Center,
                 },
                 transform: Transform {
-                    translation: Vec3::new(translation.x, -325., 12. + extra_z),
+                    translation: Vec3::new(translation.x, -412., 12. + extra_z),
                     ..Default::default()
                 },
 
@@ -260,7 +259,7 @@ fn spawn_popup(
             },
             transform: Transform::from_translation(Vec3::new(
                 transform.translation.x,
-                -325.,
+                -412.,
                 11. + extra_z,
             )),
             ..default()
