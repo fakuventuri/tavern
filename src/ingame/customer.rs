@@ -60,7 +60,7 @@ impl OrderPopupBundle {
                     alignment: TextAlignment::Center,
                 },
                 transform: Transform {
-                    translation: Vec3::new(translation.x, -325., 12. + extra_z),
+                    translation: Vec3::new(translation.x, -412., 12. + extra_z),
                     ..Default::default()
                 },
 
@@ -103,7 +103,7 @@ impl CustomerBundle {
                 drink,
             },
             sprite_bundle: SpriteBundle {
-                texture: texture,
+                texture,
                 transform,
                 sprite: Sprite {
                     anchor: bevy::sprite::Anchor::BottomCenter, // Ruins interaction_handle
@@ -259,7 +259,7 @@ fn spawn_popup(
             },
             transform: Transform::from_translation(Vec3::new(
                 transform.translation.x,
-                -325.,
+                -412.,
                 11. + extra_z,
             )),
             ..default()
@@ -292,7 +292,7 @@ fn handle_order_popup(
 
 pub fn generate_random_customer(textures: &Res<TextureAssets>) -> CustomerBundle {
     let mut rng = rand::thread_rng();
-    let name = format!("{}", CUSTOMER_NAMES.choose(&mut rng).unwrap_or(&"John"),);
+    let name = CUSTOMER_NAMES.choose(&mut rng).unwrap_or(&"John");
     let drink = Drink::iterator().choose(&mut rng).unwrap().0;
     let texture = CustomerAssets::iterator()
         .choose(&mut rng)
@@ -304,7 +304,7 @@ pub fn generate_random_customer(textures: &Res<TextureAssets>) -> CustomerBundle
         ..Default::default()
     };
 
-    CustomerBundle::new(&name, drink, texture, transform)
+    CustomerBundle::new(name, drink, texture, transform)
 }
 
 pub const CUSTOMER_NAMES: [&str; 10] = [

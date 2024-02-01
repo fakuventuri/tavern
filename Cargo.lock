@@ -2076,6 +2076,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a257582fdcde896fd96463bf2d40eefea0580021c0712a0e2b028b60b47a837a"
 
 [[package]]
+name = "inline_tweak"
+version = "1.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b7b57581af32af1202434451167ba6b6a0456f4370955c0a85d3ce6a8bfb27ef"
+dependencies = [
+ "lazy_static",
+ "rustc-hash",
+]
+
+[[package]]
 name = "inotify"
 version = "0.10.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2391,7 +2401,7 @@ dependencies = [
 
 [[package]]
 name = "mobile"
-version = "0.6.3"
+version = "0.6.5"
 dependencies = [
  "bevy",
  "cpal",
@@ -3287,13 +3297,14 @@ dependencies = [
 
 [[package]]
 name = "tavern"
-version = "0.6.3"
+version = "0.6.5"
 dependencies = [
  "bevy",
  "bevy_asset_loader",
  "bevy_kira_audio",
  "embed-resource",
  "image",
+ "inline_tweak",
  "rand",
  "webbrowser",
  "winit",

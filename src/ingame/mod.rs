@@ -1,13 +1,25 @@
+//! This module contains the implementation of the in-game functionality of the tavern.
+//!
+//! It includes the main plugin `IngamePlugin` that sets up the systems and resources required for the in-game state.
+//! The plugin handles the logic for different states of the game, such as running and paused.
+//!
+//! The module also defines various components, resources, and systems used in the in-game functionality.
+//! These include components like `OnIngameScreen`, `ClickedInteractible`, `InteractibleBundle`, etc.
+//! Resources like `DrinkInHand`, `PlayerStats`, `CustomersStats`, etc. are used to store game-related data.
+//! Systems like `setup_camera`, `setup_ingame`, `handle_esc`, `interactibles_system`, etc. handle different aspects of the in-game functionality.
+//!
+//! The in-game functionality allows players to interact with various objects in the tavern, serve customers, manage resources, and progress in the game.
+
 mod bar;
 mod customer;
 mod pause_menu;
 use crate::loading::TextureAssets;
 use crate::menu::settings::{setting_button_handle, settings_button_colors, OnSettingsMenuScreen};
-use crate::{despawn_screen, GameState, ScaleByAssetResolution, ScreenMode};
+use crate::{despawn_screen, GameState, ScaleByAssetResolution, ScreenMode, CAMERA_RESOLUTION};
 use bevy::input::mouse::MouseWheel;
 use bevy::prelude::*;
 use bevy::sprite::collide_aabb::collide;
-use bevy::window::{CursorGrabMode, PrimaryWindow};
+use bevy::window::PrimaryWindow;
 
 use self::bar::{BarPlugin, Drink};
 use self::customer::CustomerPlugin;
@@ -15,7 +27,7 @@ use self::pause_menu::{handle_button, settings_pause_setup, setup_pause_menu, On
 
 pub struct IngamePlugin;
 
-const CAMERA_SPEED: f32 = 900.;
+const CAMERA_MOVEMENT_SPEED: f32 = 900.;
 
 #[derive(Component)]
 pub struct OnIngameScreen;
@@ -130,9 +142,37 @@ struct CustomersStats {
 
 #[derive(Resource)]
 enum CameraPosition {
-    Zero,
+    // Zero,
     OneShelf,
     TwoShelf,
+}
+
+impl CameraPosition {
+    const STARTING_TRANSLATION: Vec3 = Vec3::new(0., -362., 0.);
+
+    fn down(&mut self) {
+        *self = match *self {
+            // CameraPosition::Zero => CameraPosition::OneShelf,
+            CameraPosition::OneShelf => CameraPosition::TwoShelf,
+            CameraPosition::TwoShelf => CameraPosition::TwoShelf,
+        }
+    }
+
+    fn up(&mut self) {
+        *self = match *self {
+            // CameraPosition::Zero => CameraPosition::Zero,
+            CameraPosition::OneShelf => CameraPosition::OneShelf,
+            CameraPosition::TwoShelf => CameraPosition::OneShelf,
+        }
+    }
+
+    fn to_vec2(&self) -> Vec2 {
+        match *self {
+            // CameraPosition::Zero => Vec2::new(0., 0.),
+            CameraPosition::OneShelf => Vec2::new(0., -362.),
+            CameraPosition::TwoShelf => Vec2::new(0., -717.),
+        }
+    }
 }
 
 /// IngamePlugin logic is only active during the State `GameState::Playing`
@@ -150,11 +190,10 @@ impl Plugin for IngamePlugin {
                 reputation_progress_max: 10,
             })
             .insert_resource(CustomersStats {
-                // ToDo fine tune values
-                customers_wait_duration: 3.5,
+                customers_wait_duration: 3.,
                 customers_spawn_gap: 0..3,
             })
-            .insert_resource(CameraPosition::Zero)
+            .insert_resource(CameraPosition::OneShelf)
             .add_plugins(BarPlugin)
             .add_plugins(CustomerPlugin)
             // GameState::Playing // starts with IngameState::Disabled
@@ -169,7 +208,6 @@ impl Plugin for IngamePlugin {
             )
             .add_systems(OnExit(GameState::Playing), despawn_screen::<OnIngameScreen>)
             // IngameState::Running
-            // .add_systems(OnEnter(IngameState::Running), cursor_grab) // Mouse bug in web
             .add_systems(
                 Update,
                 (
@@ -177,7 +215,6 @@ impl Plugin for IngamePlugin {
                     move_camera_system.run_if(in_state(IngameState::Running)),
                 ),
             )
-            // .add_systems(OnExit(IngameState::Running), cursor_ungrab) // Mouse bug in web
             // IngameState::Paused
             .add_systems(OnEnter(IngameState::Paused), setup_pause_menu)
             .add_systems(Update, handle_button.run_if(in_state(IngameState::Paused)))
@@ -208,86 +245,62 @@ pub struct MainCameraIngame;
 struct MoveCameraTo(Option<Vec2>);
 
 #[derive(Component)]
-struct CameraBound(Vec2);
+enum CameraBound {
+    Top,
+    Bottom,
+    Left,
+    Right,
+}
+
+impl CameraBound {
+    fn get_offset(&self) -> Vec3 {
+        match self {
+            CameraBound::Top => Vec3::new(0., CAMERA_RESOLUTION.y, 999.),
+            CameraBound::Bottom => Vec3::new(0., -CAMERA_RESOLUTION.y, 999.),
+            CameraBound::Left => Vec3::new(-CAMERA_RESOLUTION.x, 0., 999.),
+            CameraBound::Right => Vec3::new(CAMERA_RESOLUTION.x, 0., 999.),
+        }
+    }
+}
 
 fn setup_camera(mut commands: Commands) {
     // CameraBounds Black Sprites out of screen to hide sprites out of window in weird resolutions.
     // ToDo look for a better solution
-    // Bottom of the Screen
-    commands
-        .spawn(SpriteBundle {
-            transform: Transform {
-                translation: Vec3::new(0., -1080., 999.),
-                scale: Vec3::new(1920., 1080., 0.0),
+    for camera_bound in [
+        CameraBound::Top,
+        CameraBound::Bottom,
+        CameraBound::Left,
+        CameraBound::Right,
+    ] {
+        commands
+            .spawn(SpriteBundle {
+                transform: Transform {
+                    translation: CameraPosition::STARTING_TRANSLATION + camera_bound.get_offset(),
+                    scale: Vec3::new(CAMERA_RESOLUTION.x, CAMERA_RESOLUTION.y, 0.0),
+                    ..Default::default()
+                },
+                sprite: Sprite {
+                    color: Color::rgb(0., 0., 0.),
+                    ..default()
+                },
                 ..Default::default()
-            },
-            sprite: Sprite {
-                color: Color::rgb(0., 0., 0.),
-                ..default()
-            },
-            ..Default::default()
-        })
-        .insert(CameraBound(Vec2::new(0., -1080.)))
-        .insert(OnIngameScreen);
-    // Top of the Screen
-    commands
-        .spawn(SpriteBundle {
-            transform: Transform {
-                translation: Vec3::new(0., 1080., 999.),
-                scale: Vec3::new(1920., 1080., 0.0),
-                ..Default::default()
-            },
-            sprite: Sprite {
-                color: Color::rgb(0., 0., 0.),
-                ..default()
-            },
-            ..Default::default()
-        })
-        .insert(CameraBound(Vec2::new(0., 1080.)))
-        .insert(OnIngameScreen);
-    // Left of the Screen
-    commands
-        .spawn(SpriteBundle {
-            transform: Transform {
-                translation: Vec3::new(-1920., 0., 999.),
-                scale: Vec3::new(1920., 1080., 0.0),
-                ..Default::default()
-            },
-            sprite: Sprite {
-                color: Color::rgb(0., 0., 0.),
-                ..default()
-            },
-            ..Default::default()
-        })
-        .insert(CameraBound(Vec2::new(-1920., 0.)))
-        .insert(OnIngameScreen);
-    // Right of the Screen
-    commands
-        .spawn(SpriteBundle {
-            transform: Transform {
-                translation: Vec3::new(1920., 0., 999.),
-                scale: Vec3::new(1920., 1080., 0.0),
-                ..Default::default()
-            },
-            sprite: Sprite {
-                color: Color::rgb(0., 0., 0.),
-                ..default()
-            },
-            ..Default::default()
-        })
-        .insert(CameraBound(Vec2::new(1920., 0.)))
-        .insert(OnIngameScreen);
+            })
+            .insert(camera_bound)
+            .insert(OnIngameScreen);
+    }
 
     // Camera
     let mut camera_bundle = Camera2dBundle::default();
 
     camera_bundle.projection.scaling_mode = bevy::render::camera::ScalingMode::AutoMin {
-        min_width: 1920.,
-        min_height: 1080.,
+        min_width: CAMERA_RESOLUTION.x,
+        min_height: CAMERA_RESOLUTION.y,
     };
     // camera_bundle.camera_2d.clear_color =
     //     bevy::core_pipeline::clear_color::ClearColorConfig::Custom(Color::rgb(0.5, 0.5, 0.5));
     // camera_bundle.camera.hdr = true; // Weir behabior (like a weird effect) with Rgba with high alpha values
+
+    camera_bundle.transform.translation = CameraPosition::STARTING_TRANSLATION;
 
     commands
         .spawn(camera_bundle)
@@ -444,7 +457,7 @@ fn move_camera_system(
         let current_position = camera_transform.translation;
         if current_position.distance(target) > 10. {
             camera_transform.translation += (target - current_position).normalize_or_zero()
-                * CAMERA_SPEED
+                * CAMERA_MOVEMENT_SPEED
                 * time.delta_seconds();
         } else {
             camera_transform.translation.x = target.x;
@@ -455,11 +468,12 @@ fn move_camera_system(
         // Adjust CameraBounds
         for (mut bound_transform, bound) in bounds_q.iter_mut() {
             bound_transform.translation =
-                (bound.0 + camera_transform.translation.truncate()).extend(999.);
+                bound.get_offset() + camera_transform.translation.truncate().extend(0.);
         }
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn interactibles_system(
     mut commands: Commands,
     windows_q: Query<&Window, With<PrimaryWindow>>,
@@ -519,8 +533,7 @@ fn interactibles_system(
             // Calculate interactible translation for collision
             let mut interacticle_translation = interactible_transform.translation;
             if *interactible_action == InteractibleAction::Customer {
-                interacticle_translation.y =
-                    interacticle_translation.y + scaled_image_dimension.y / 2.;
+                interacticle_translation.y += scaled_image_dimension.y / 2.;
             }
 
             if let Some(_collision) = collide(
@@ -639,57 +652,21 @@ fn keys_camera_control(
     let mut move_camera_to = move_camera_to_q.single_mut();
 
     if keys.just_pressed(KeyCode::W) || keys.just_pressed(KeyCode::Up) {
-        match *camera_position {
-            CameraPosition::Zero => {}
-            CameraPosition::OneShelf => {
-                move_camera_to.0 = Some(Vec2::new(0., 0.)); // -275. = One shelf height | -630. = Two shelf height
-                *camera_position = CameraPosition::Zero;
-            }
-            CameraPosition::TwoShelf => {
-                move_camera_to.0 = Some(Vec2::new(0., -275.)); // -275. = One shelf height | -630. = Two shelf height
-                *camera_position = CameraPosition::OneShelf;
-            }
-        }
+        camera_position.up();
+        move_camera_to.0 = Some(camera_position.to_vec2());
     }
     if keys.just_pressed(KeyCode::S) || keys.just_pressed(KeyCode::Down) {
-        match *camera_position {
-            CameraPosition::Zero => {
-                move_camera_to.0 = Some(Vec2::new(0., -275.)); // -275. = One shelf height | -630. = Two shelf height
-                *camera_position = CameraPosition::OneShelf;
-            }
-            CameraPosition::OneShelf => {
-                move_camera_to.0 = Some(Vec2::new(0., -630.)); // -275. = One shelf height | -630. = Two shelf height
-                *camera_position = CameraPosition::TwoShelf;
-            }
-            CameraPosition::TwoShelf => {}
-        }
+        camera_position.down();
+        move_camera_to.0 = Some(camera_position.to_vec2());
     }
 
     if let Some(scroll) = scroll_evr.read().last() {
         if scroll.y < 0. {
-            match *camera_position {
-                CameraPosition::Zero => {
-                    move_camera_to.0 = Some(Vec2::new(0., -275.)); // -275. = One shelf height | -630. = Two shelf height
-                    *camera_position = CameraPosition::OneShelf;
-                }
-                CameraPosition::OneShelf => {
-                    move_camera_to.0 = Some(Vec2::new(0., -630.)); // -275. = One shelf height | -630. = Two shelf height
-                    *camera_position = CameraPosition::TwoShelf;
-                }
-                CameraPosition::TwoShelf => {}
-            }
+            camera_position.down();
+            move_camera_to.0 = Some(camera_position.to_vec2());
         } else if scroll.y > 0. {
-            match *camera_position {
-                CameraPosition::Zero => {}
-                CameraPosition::OneShelf => {
-                    move_camera_to.0 = Some(Vec2::new(0., 0.)); // -275. = One shelf height | -630. = Two shelf height
-                    *camera_position = CameraPosition::Zero;
-                }
-                CameraPosition::TwoShelf => {
-                    move_camera_to.0 = Some(Vec2::new(0., -275.)); // -275. = One shelf height | -630. = Two shelf height
-                    *camera_position = CameraPosition::OneShelf;
-                }
-            }
+            camera_position.up();
+            move_camera_to.0 = Some(camera_position.to_vec2());
         }
     }
 }
@@ -708,22 +685,6 @@ fn handle_esc(
             _ => {}
         }
     }
-}
-#[allow(dead_code)]
-/// Grab Cursor to prevent it from leaving the window
-fn cursor_grab(mut q_windows: Query<&mut Window, With<PrimaryWindow>>) {
-    let mut primary_window = q_windows.single_mut();
-
-    // Use the cursor, but not let it leave the window.
-    primary_window.cursor.grab_mode = CursorGrabMode::Confined;
-}
-
-#[allow(dead_code)]
-/// Release Cursor
-fn cursor_ungrab(mut q_windows: Query<&mut Window, With<PrimaryWindow>>) {
-    let mut primary_window = q_windows.single_mut();
-
-    primary_window.cursor.grab_mode = CursorGrabMode::None;
 }
 
 fn go_to_main_menu(mut game_next_state: ResMut<NextState<GameState>>) {

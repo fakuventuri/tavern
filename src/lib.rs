@@ -20,6 +20,7 @@ use bevy::diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin};
 use bevy::prelude::*;
 
 // Constants
+pub const CAMERA_RESOLUTION: Vec2 = Vec2::new(1920., 1080.);
 pub const TEXT_COLOR: Color = Color::rgb(0.9, 0.9, 0.9);
 pub const MENU_BACKGROUND_COLOR: Color = Color::rgb(0.05, 0.05, 0.05);
 
@@ -144,7 +145,7 @@ impl ScaleByAssetResolution {
             ScaleByAssetResolution::Res1080p => Vec3::new(1.0, 1.0, 0.0),
             ScaleByAssetResolution::Res720p => Vec3::new(1.5, 1.5, 0.0),
             ScaleByAssetResolution::Custom(resolution) => {
-                Vec3::new(1920. / resolution.x, 1080. / resolution.y, 0.)
+                (CAMERA_RESOLUTION / *resolution).extend(0.0)
             }
         }
     }

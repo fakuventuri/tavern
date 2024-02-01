@@ -1,10 +1,15 @@
 use bevy::prelude::*;
 
 use crate::{
-    menu::{menu_button, settings::{OnSettingsMenuScreen, SelectedOption}, ButtonColors}, ScreenMode, TEXT_COLOR
+    menu::{
+        menu_button,
+        settings::{OnSettingsMenuScreen, SelectedOption},
+        ButtonColors,
+    },
+    ScreenMode, TEXT_COLOR,
 };
 
-use super::{IngameState, MainCameraIngame};
+use super::{IngameState, MainCameraIngame, CAMERA_RESOLUTION};
 
 #[derive(Component)]
 pub struct OnPauseMenu;
@@ -27,7 +32,7 @@ pub fn setup_pause_menu(
         .spawn(SpriteBundle {
             transform: Transform {
                 translation: camera_transform.translation.xy().extend(111.),
-                scale: Vec3::new(1920., 1080., 0.0),
+                scale: CAMERA_RESOLUTION.extend(0.),
                 ..Default::default()
             },
             sprite: Sprite {
@@ -169,7 +174,7 @@ pub fn settings_pause_setup(
         .spawn(SpriteBundle {
             transform: Transform {
                 translation: camera_transform.translation.xy().extend(111.),
-                scale: Vec3::new(1920., 1080., 0.0),
+                scale: CAMERA_RESOLUTION.extend(0.),
                 ..Default::default()
             },
             sprite: Sprite {

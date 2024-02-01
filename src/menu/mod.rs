@@ -2,7 +2,8 @@ pub mod settings;
 
 use crate::loading::TextureAssets;
 use crate::{
-    despawn_screen, exit_game_system, GameState, ScreenMode, MENU_BACKGROUND_COLOR, TEXT_COLOR,
+    despawn_screen, exit_game_system, GameState, ScreenMode, CAMERA_RESOLUTION,
+    MENU_BACKGROUND_COLOR, TEXT_COLOR,
 };
 use bevy::prelude::*;
 use bevy::text::TextSettings;
@@ -92,8 +93,8 @@ fn setup_camera(mut commands: Commands) {
     let mut camera_bundle = Camera2dBundle::default();
 
     camera_bundle.projection.scaling_mode = bevy::render::camera::ScalingMode::AutoMin {
-        min_width: 1920.,
-        min_height: 1080.,
+        min_width: CAMERA_RESOLUTION.x,
+        min_height: CAMERA_RESOLUTION.y,
     };
     camera_bundle.camera_2d.clear_color =
         bevy::core_pipeline::clear_color::ClearColorConfig::Custom(MENU_BACKGROUND_COLOR);

@@ -18,9 +18,9 @@ pub struct BarPlugin;
 
 // Constants
 /// The y position of the customer when they are at the bar
-pub const BAR_CUSTOMER_TARGET_Y: f32 = -850.; // y: -850.
+pub const BAR_CUSTOMER_TARGET_Y: f32 = -937.;
 /// The y position of the customer when they not visible
-pub const BAR_CUSTOMER_HIDDEN_Y: f32 = -1400.;
+pub const BAR_CUSTOMER_HIDDEN_Y: f32 = -1487.;
 const SLOT_LEFT_SPAWN_POINT: Vec3 = Vec3::new(-700., BAR_CUSTOMER_HIDDEN_Y, 3.); // z = 3.
 const SLOT_MIDDLE_SPAWN_POINT: Vec3 = Vec3::new(0., BAR_CUSTOMER_HIDDEN_Y, 2.);
 const SLOT_RIGHT_SPAWN_POINT: Vec3 = Vec3::new(700., BAR_CUSTOMER_HIDDEN_Y, 1.);
@@ -50,9 +50,9 @@ pub enum Drink {
 impl Drink {
     pub fn iterator() -> impl Iterator<Item = (Drink, Vec3)> {
         vec![
-            (Drink::Beer, Vec3::new(750., -615., 14.)),
-            (Drink::Wine, Vec3::new(400., -615., 13.)),
-            (Drink::Whiskey, Vec3::new(50., -615., 12.)),
+            (Drink::Beer, Vec3::new(750., -702., 14.)),
+            (Drink::Wine, Vec3::new(400., -702., 13.)),
+            (Drink::Whiskey, Vec3::new(50., -702., 12.)),
         ]
         .into_iter()
     }
@@ -114,7 +114,7 @@ fn setup_bar(mut commands: Commands, textures: Res<TextureAssets>) {
         .spawn(SpriteBundle {
             texture: textures.bar.clone(),
             transform: Transform {
-                translation: Vec3::new(0., -733., 10.),
+                translation: Vec3::new(0., -820., 10.), // original y: -733.
                 scale: ScaleByAssetResolution::Res720p.scale(),
                 ..Default::default()
             },
@@ -216,17 +216,16 @@ fn spawn_customer(
 ) {
     let mut bar = bar_q.single_mut();
 
-    if !bar.customer_slots.is_full() {
-        if bar.customer_spawn_timer.tick(time.delta()).just_finished() {
-            if let Some(slot) = bar.customer_slots.get_random_empty_slot() {
-                slot.customer = Some(generate_random_customer(&textures));
-            }
-            bar.customer_spawn_timer.reset();
-            let rand_next_customer_time =
-                rand::thread_rng().gen_range(customers_stats.customers_spawn_gap.clone());
-            bar.customer_spawn_timer
-                .set_duration(Duration::from_secs(rand_next_customer_time));
+    if !bar.customer_slots.is_full() && bar.customer_spawn_timer.tick(time.delta()).just_finished()
+    {
+        if let Some(slot) = bar.customer_slots.get_random_empty_slot() {
+            slot.customer = Some(generate_random_customer(&textures));
         }
+        bar.customer_spawn_timer.reset();
+        let rand_next_customer_time =
+            rand::thread_rng().gen_range(customers_stats.customers_spawn_gap.clone());
+        bar.customer_spawn_timer
+            .set_duration(Duration::from_secs(rand_next_customer_time));
     }
 }
 
