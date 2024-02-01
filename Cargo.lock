@@ -2401,7 +2401,7 @@ dependencies = [
 
 [[package]]
 name = "mobile"
-version = "0.6.3"
+version = "0.6.5"
 dependencies = [
  "bevy",
  "cpal",
@@ -3297,7 +3297,7 @@ dependencies = [
 
 [[package]]
 name = "tavern"
-version = "0.6.3"
+version = "0.6.5"
 dependencies = [
  "bevy",
  "bevy_asset_loader",
