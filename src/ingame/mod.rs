@@ -19,7 +19,7 @@ use crate::{despawn_screen, GameState, ScaleByAssetResolution, ScreenMode, CAMER
 use bevy::input::mouse::MouseWheel;
 use bevy::prelude::*;
 use bevy::sprite::collide_aabb::collide;
-use bevy::window::{CursorGrabMode, PrimaryWindow};
+use bevy::window::PrimaryWindow;
 
 use self::bar::{BarPlugin, Drink};
 use self::customer::CustomerPlugin;
@@ -208,7 +208,6 @@ impl Plugin for IngamePlugin {
             )
             .add_systems(OnExit(GameState::Playing), despawn_screen::<OnIngameScreen>)
             // IngameState::Running
-            // .add_systems(OnEnter(IngameState::Running), cursor_grab) // Mouse bug in web
             .add_systems(
                 Update,
                 (
@@ -216,7 +215,6 @@ impl Plugin for IngamePlugin {
                     move_camera_system.run_if(in_state(IngameState::Running)),
                 ),
             )
-            // .add_systems(OnExit(IngameState::Running), cursor_ungrab) // Mouse bug in web
             // IngameState::Paused
             .add_systems(OnEnter(IngameState::Paused), setup_pause_menu)
             .add_systems(Update, handle_button.run_if(in_state(IngameState::Paused)))
@@ -687,22 +685,6 @@ fn handle_esc(
             _ => {}
         }
     }
-}
-#[allow(dead_code)]
-/// Grab Cursor to prevent it from leaving the window
-fn cursor_grab(mut q_windows: Query<&mut Window, With<PrimaryWindow>>) {
-    let mut primary_window = q_windows.single_mut();
-
-    // Use the cursor, but not let it leave the window.
-    primary_window.cursor.grab_mode = CursorGrabMode::Confined;
-}
-
-#[allow(dead_code)]
-/// Release Cursor
-fn cursor_ungrab(mut q_windows: Query<&mut Window, With<PrimaryWindow>>) {
-    let mut primary_window = q_windows.single_mut();
-
-    primary_window.cursor.grab_mode = CursorGrabMode::None;
 }
 
 fn go_to_main_menu(mut game_next_state: ResMut<NextState<GameState>>) {
